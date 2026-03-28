@@ -31,4 +31,9 @@ describe('getValidDaysForMonth', () => {
   it('returns 31 for December', () => {
     expect(getValidDaysForMonth(12)).toBe(31);
   });
+
+  it('throws for invalid month values', () => {
+    expect(() => getValidDaysForMonth(0)).toThrow(RangeError);
+    expect(() => getValidDaysForMonth(13)).toThrow(RangeError);
+  });
 });

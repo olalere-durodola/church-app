@@ -7,5 +7,8 @@ export function normalizeFullName(firstName: string, lastName: string): string {
 const DAYS_IN_MONTH = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
 export function getValidDaysForMonth(month: number): number {
+  if (month < 1 || month > 12) {
+    throw new RangeError(`Invalid month: ${month}. Must be 1–12.`);
+  }
   return DAYS_IN_MONTH[month] ?? 31;
 }
