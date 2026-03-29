@@ -6,6 +6,7 @@ import AddMemberPage from './pages/AddMemberPage';
 import MemberDetailPage from './pages/MemberDetailPage';
 import BirthdayDashboardPage from './pages/BirthdayDashboardPage';
 import AttendancePage from './pages/AttendancePage';
+import AttendanceHistoryPage from './pages/AttendanceHistoryPage';
 import { useAuth } from './hooks/useAuth';
 
 function Nav() {
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="/members/:id" element={<ProtectedRoute><Layout><MemberDetailPage /></Layout></ProtectedRoute>} />
         <Route path="/birthdays" element={<ProtectedRoute><Layout><BirthdayDashboardPage /></Layout></ProtectedRoute>} />
         <Route path="/attendance" element={<ProtectedRoute><Layout><AttendancePage /></Layout></ProtectedRoute>} />
+        <Route path="/attendance/history" element={<ProtectedRoute><Layout><AttendanceHistoryPage /></Layout></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );

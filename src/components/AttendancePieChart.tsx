@@ -1,5 +1,6 @@
 import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from 'recharts';
 import type { AttendanceRecord } from '../types/attendance';
+import { formatDisplayDate } from '../utils/attendanceUtils';
 
 const SEGMENTS = [
   { key: 'men',      label: 'Men',      color: '#3b82f6' },
@@ -10,9 +11,10 @@ const SEGMENTS = [
 
 interface Props {
   record: AttendanceRecord;
+  date: string;
 }
 
-export default function AttendancePieChart({ record }: Props) {
+export default function AttendancePieChart({ record, date }: Props) {
   const data = SEGMENTS.map(s => ({ name: s.label, value: record[s.key], color: s.color }))
     .filter(d => d.value > 0);
 
@@ -20,7 +22,7 @@ export default function AttendancePieChart({ record }: Props) {
 
   return (
     <div className="chart-wrapper">
-      <h2 className="section-title">Breakdown</h2>
+      <h2 className="section-title">Breakdown — {formatDisplayDate(date)}</h2>
       <ResponsiveContainer width="100%" height={280}>
         <PieChart>
           <Pie

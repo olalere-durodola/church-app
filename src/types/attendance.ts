@@ -7,4 +7,6 @@ export interface AttendanceRecord {
   visitors: number;
   total: number;
   recordedAt: Timestamp;
+  sermonTitle?: string;
+  preacher?: string;
 }

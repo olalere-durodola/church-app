@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import {
-  collection, doc, getDocs, setDoc, serverTimestamp, orderBy, query, Timestamp,
+  collection, doc, getDocs, setDoc, serverTimestamp, Timestamp,
 } from 'firebase/firestore';
+import { Link } from 'react-router-dom';
 import { db } from '../firebase';
 import type { AttendanceRecord } from '../types/attendance';
 import { formatDisplayDate } from '../utils/attendanceUtils';
@@ -14,9 +15,11 @@ interface FormState {
   women: number;
   children: number;
   visitors: number;
+  sermonTitle: string;
+  preacher: string;
 }
 
-const EMPTY_FORM: FormState = { men: 0, women: 0, children: 0, visitors: 0 };
+const EMPTY_FORM: FormState = { men: 0, women: 0, children: 0, visitors: 0, sermonTitle: '', preacher: '' };
 
 export default function AttendancePage() {
   const [records, setRecords] = useState<Map<string, AttendanceRecord>>(new Map());
@@ -28,10 +31,8 @@ export default function AttendancePage() {
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
-  // Fetch all records on mount
   useEffect(() => {
-    const q = query(collection(db, 'attendance'), orderBy('__name__', 'desc'));
-    getDocs(q)
+    getDocs(collection(db, 'attendance'))
       .then(snap => {
         const map = new Map<string, AttendanceRecord>();
         snap.forEach(d => map.set(d.id, d.data() as AttendanceRecord));
@@ -46,15 +47,28 @@ export default function AttendancePage() {
     setSaveStatus('idle');
     const existing = records.get(dateStr);
     if (existing) {
-      setForm({ men: existing.men, women: existing.women, children: existing.children, visitors: existing.visitors });
+      setForm({
+        men: existing.men,
+        women: existing.women,
+        children: existing.children,
+        visitors: existing.visitors,
+        sermonTitle: existing.sermonTitle ?? '',
+        preacher: existing.preacher ?? '',
+      });
     } else {
       setForm(EMPTY_FORM);
     }
   }
 
-  function handleInput(field: keyof FormState, raw: string) {
-    const val = Math.max(0, parseInt(raw, 10) || 0);
+  function handleCount(field: 'men' | 'women' | 'children' | 'visitors', raw: string) {
+    const digits = raw.replace(/\D/g, '');
+    const val = digits === '' ? 0 : Math.max(0, parseInt(digits, 10) || 0);
     setForm(f => ({ ...f, [field]: val }));
+    setSaveStatus('idle');
+  }
+
+  function handleText(field: 'sermonTitle' | 'preacher', value: string) {
+    setForm(f => ({ ...f, [field]: value }));
     setSaveStatus('idle');
   }
 
@@ -66,15 +80,28 @@ export default function AttendancePage() {
     setSaveStatus('idle');
     try {
       const record: Omit<AttendanceRecord, 'recordedAt'> & { recordedAt: unknown } = {
-        ...form,
+        men: form.men,
+        women: form.women,
+        children: form.children,
+        visitors: form.visitors,
+        sermonTitle: form.sermonTitle,
+        preacher: form.preacher,
         total,
         recordedAt: serverTimestamp(),
       };
       await setDoc(doc(db, 'attendance', selectedDate), record, { merge: true });
-      // Update local cache
       setRecords(prev => {
         const next = new Map(prev);
-        next.set(selectedDate, { ...form, total, recordedAt: Timestamp.now() });
+        next.set(selectedDate, {
+          men: form.men,
+          women: form.women,
+          children: form.children,
+          visitors: form.visitors,
+          sermonTitle: form.sermonTitle,
+          preacher: form.preacher,
+          total,
+          recordedAt: Timestamp.now(),
+        });
         return next;
       });
       setSaveStatus('success');
@@ -89,20 +116,19 @@ export default function AttendancePage() {
   const selectedRecord = selectedDate ? records.get(selectedDate) : undefined;
   const showChart = !!(selectedRecord && selectedRecord.total > 0);
 
-  // History sorted by date descending (keys are YYYY-MM-DD so lexicographic = chronological)
-  const history = Array.from(records.entries()).sort(([a], [b]) => b.localeCompare(a));
-
   if (loading) return <LoadingSpinner />;
 
   return (
     <div className="page">
       <div className="page-header">
         <h1>Attendance</h1>
+        <Link to="/attendance/history">
+          <button className="btn btn-secondary">History →</button>
+        </Link>
       </div>
 
       {fetchError && <p className="error-message">{fetchError}</p>}
 
-      {/* Top section: calendar + form */}
       <div className="attendance-top">
         <AttendanceCalendar
           selectedDate={selectedDate}
@@ -122,15 +148,37 @@ export default function AttendancePage() {
               <label key={field}>
                 {field.charAt(0).toUpperCase() + field.slice(1)}
                 <input
-                  type="number"
-                  min={0}
-                  value={form[field]}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={form[field] === 0 ? '' : String(form[field])}
                   disabled={!selectedDate}
-                  onChange={e => handleInput(field, e.target.value)}
+                  placeholder="0"
+                  onChange={e => handleCount(field, e.target.value)}
                 />
               </label>
             ))}
           </div>
+          <label>
+            Sermon Title
+            <input
+              type="text"
+              value={form.sermonTitle}
+              disabled={!selectedDate}
+              placeholder="e.g. Walking in Faith"
+              onChange={e => handleText('sermonTitle', e.target.value)}
+            />
+          </label>
+          <label>
+            Preacher
+            <input
+              type="text"
+              value={form.preacher}
+              disabled={!selectedDate}
+              placeholder="e.g. Pastor John"
+              onChange={e => handleText('preacher', e.target.value)}
+            />
+          </label>
           <div className="attendance-total">Total: <strong>{total}</strong></div>
           <button
             className="btn btn-primary"
@@ -144,50 +192,9 @@ export default function AttendancePage() {
         </div>
       </div>
 
-      {/* Pie chart */}
-      {showChart && selectedRecord && (
-        <AttendancePieChart record={selectedRecord} />
+      {showChart && selectedRecord && selectedDate && (
+        <AttendancePieChart record={selectedRecord} date={selectedDate} />
       )}
-
-      {/* History table */}
-      <div className="card">
-        <h2 className="section-title">History</h2>
-        {history.length === 0 ? (
-          <p className="empty-state">No records yet.</p>
-        ) : (
-          <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Men</th>
-                  <th>Women</th>
-                  <th>Children</th>
-                  <th>Visitors</th>
-                  <th>Total</th>
-                  <th>Last Updated</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map(([dateStr, rec]) => (
-                  <tr
-                    key={dateStr}
-                    className={dateStr === selectedDate ? 'row-selected' : ''}
-                    onClick={() => handleDateSelect(dateStr)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <td>{formatDisplayDate(dateStr)}</td>
-                    <td>{rec.men}</td>
-                    <td>{rec.women}</td>
-                    <td>{rec.children}</td>
-                    <td>{rec.visitors}</td>
-                    <td><strong>{rec.total}</strong></td>
-                    <td>{rec.recordedAt ? rec.recordedAt.toDate().toLocaleString() : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-        )}
-      </div>
     </div>
   );
 }
