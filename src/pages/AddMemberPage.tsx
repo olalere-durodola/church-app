@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { collection, addDoc, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { useNavigate, Link } from 'react-router-dom';
 import { db } from '../firebase';
@@ -19,9 +19,20 @@ export default function AddMemberPage() {
   const [gender, setGender] = useState<'Male' | 'Female'>('Male');
   const [status, setStatus] = useState<'Active' | 'Inactive' | 'Visitor'>('Visitor');
   const [membershipDate, setMembershipDate] = useState('');
+  const [department, setDepartment] = useState('');
+  const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    getDocs(collection(db, 'departments'))
+      .then(snap => {
+        const names = snap.docs.map(d => d.data().name as string).sort();
+        setDepartmentOptions(names);
+      })
+      .catch(() => {/* non-critical, silently ignore */});
+  }, []);
 
   const selectedMonth = parseInt(birthdayMonth, 10);
   const maxDay = birthdayMonth ? getValidDaysForMonth(selectedMonth) : 31;
@@ -60,7 +71,7 @@ export default function AddMemberPage() {
         birthdayDay: hasDay ? parseInt(birthdayDay, 10) : null,
         gender,
         status,
-        department: null,
+        department: department || null,
         membershipDate: membershipDate ? Timestamp.fromDate(new Date(membershipDate)) : null,
         notes,
         createdAt: Timestamp.now(),
@@ -166,6 +177,16 @@ export default function AddMemberPage() {
                 <option value="Inactive">Inactive</option>
               </select>
             </div>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="department">Department</label>
+            <select id="department" value={department} onChange={e => setDepartment(e.target.value)}>
+              <option value="">— None —</option>
+              {departmentOptions.map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
           </div>
 
           <div className="form-group">

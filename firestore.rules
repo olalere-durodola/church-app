@@ -18,5 +18,9 @@ service cloud.firestore {
     match /attendance/{date} {
       allow read, write: if isAdmin();
     }
+
+    match /departments/{deptId} {
+      allow read, write: if isAdmin();
+    }
   }
 }

@@ -7,6 +7,7 @@ import MemberDetailPage from './pages/MemberDetailPage';
 import BirthdayDashboardPage from './pages/BirthdayDashboardPage';
 import AttendancePage from './pages/AttendancePage';
 import AttendanceHistoryPage from './pages/AttendanceHistoryPage';
+import DepartmentsPage from './pages/DepartmentsPage';
 import { useAuth } from './hooks/useAuth';
 
 function Nav() {
@@ -23,6 +24,9 @@ function Nav() {
         </NavLink>
         <NavLink to="/attendance" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
           Attendance
+        </NavLink>
+        <NavLink to="/departments" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
+          Departments
         </NavLink>
       </div>
       <button className="nav-signout" onClick={logout}>Sign out</button>
@@ -51,6 +55,7 @@ export default function App() {
         <Route path="/birthdays" element={<ProtectedRoute><Layout><BirthdayDashboardPage /></Layout></ProtectedRoute>} />
         <Route path="/attendance" element={<ProtectedRoute><Layout><AttendancePage /></Layout></ProtectedRoute>} />
         <Route path="/attendance/history" element={<ProtectedRoute><Layout><AttendanceHistoryPage /></Layout></ProtectedRoute>} />
+        <Route path="/departments" element={<ProtectedRoute><Layout><DepartmentsPage /></Layout></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );
