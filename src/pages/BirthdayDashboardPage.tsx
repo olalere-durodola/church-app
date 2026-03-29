@@ -5,16 +5,8 @@ import { db } from '../firebase';
 import type { Member } from '../types/member';
 import { getBirthdaysThisMonth, getBirthdaysComingUp } from '../utils/birthdayUtils';
 import LoadingSpinner from '../components/LoadingSpinner';
-
-const MONTHS = [
-  '', 'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
-
-function StatusBadge({ status }: { status: Member['status'] }) {
-  const cls = status === 'Active' ? 'badge-active' : status === 'Inactive' ? 'badge-inactive' : 'badge-visitor';
-  return <span className={`badge ${cls}`}>{status}</span>;
-}
+import StatusBadge from '../components/StatusBadge';
+import { MONTHS } from '../utils/dateConstants';
 
 function BirthdayTable({ rows }: { rows: Member[] }) {
   if (rows.length === 0) {
@@ -59,6 +51,12 @@ export default function BirthdayDashboardPage() {
   }, []);
 
   if (loading) return <LoadingSpinner />;
+  if (error) return (
+    <div className="page">
+      <h1 style={{ marginBottom: '1rem' }}>Birthdays</h1>
+      <p className="error-message">{error}</p>
+    </div>
+  );
 
   const today = new Date();
   const thisMonth = getBirthdaysThisMonth(members, today);
@@ -67,8 +65,6 @@ export default function BirthdayDashboardPage() {
   return (
     <div className="page">
       <h1 style={{ marginBottom: '2rem' }}>Birthdays</h1>
-
-      {error && <p className="error-message">{error}</p>}
 
       <div style={{ display: 'grid', gap: '2rem' }}>
         <section>

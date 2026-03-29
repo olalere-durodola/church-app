@@ -5,11 +5,8 @@ import { db } from '../firebase';
 import type { Member } from '../types/member';
 import { normalizeFullName, getValidDaysForMonth } from '../utils/memberUtils';
 import LoadingSpinner from '../components/LoadingSpinner';
-
-const MONTHS = [
-  '', 'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
+import StatusBadge from '../components/StatusBadge';
+import { MONTHS } from '../utils/dateConstants';
 
 function formatDate(ts: Timestamp | null): string {
   if (!ts) return '—';
@@ -19,11 +16,6 @@ function formatDate(ts: Timestamp | null): string {
 function formatBirthday(month: number | null, day: number | null): string {
   if (month === null || day === null) return '—';
   return `${MONTHS[month]} ${day}`;
-}
-
-function StatusBadge({ status }: { status: Member['status'] }) {
-  const cls = status === 'Active' ? 'badge-active' : status === 'Inactive' ? 'badge-inactive' : 'badge-visitor';
-  return <span className={`badge ${cls}`}>{status}</span>;
 }
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {

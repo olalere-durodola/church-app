@@ -4,11 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { normalizeFullName, getValidDaysForMonth } from '../utils/memberUtils';
 import type { NewMember } from '../types/member';
-
-const MONTHS = [
-  '', 'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
+import { MONTHS } from '../utils/dateConstants';
 
 export default function AddMemberPage() {
   const navigate = useNavigate();

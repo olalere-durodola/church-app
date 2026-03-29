@@ -5,11 +5,7 @@ import { db } from '../firebase';
 import type { Member } from '../types/member';
 import { filterMembers } from '../utils/memberFilters';
 import LoadingSpinner from '../components/LoadingSpinner';
-
-function StatusBadge({ status }: { status: Member['status'] }) {
-  const cls = status === 'Active' ? 'badge-active' : status === 'Inactive' ? 'badge-inactive' : 'badge-visitor';
-  return <span className={`badge ${cls}`}>{status}</span>;
-}
+import StatusBadge from '../components/StatusBadge';
 
 export default function MembersListPage() {
   const [members, setMembers] = useState<Member[]>([]);
