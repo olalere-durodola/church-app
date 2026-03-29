@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  collection, doc, getDocs, setDoc, serverTimestamp, orderBy, query,
+  collection, doc, getDocs, setDoc, serverTimestamp, orderBy, query, Timestamp,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { AttendanceRecord } from '../types/attendance';
@@ -74,7 +74,7 @@ export default function AttendancePage() {
       // Update local cache
       setRecords(prev => {
         const next = new Map(prev);
-        next.set(selectedDate, { ...form, total } as AttendanceRecord);
+        next.set(selectedDate, { ...form, total, recordedAt: Timestamp.now() });
         return next;
       });
       setSaveStatus('success');
@@ -95,10 +95,12 @@ export default function AttendancePage() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="page-container">
-      <h1 className="page-title">Attendance</h1>
+    <div className="page">
+      <div className="page-header">
+        <h1>Attendance</h1>
+      </div>
 
-      {fetchError && <div className="error-banner">{fetchError}</div>}
+      {fetchError && <p className="error-message">{fetchError}</p>}
 
       {/* Top section: calendar + form */}
       <div className="attendance-top">
@@ -117,12 +119,11 @@ export default function AttendancePage() {
           )}
           <div className="form-fields">
             {(['men', 'women', 'children', 'visitors'] as const).map(field => (
-              <label key={field} className="form-label">
+              <label key={field}>
                 {field.charAt(0).toUpperCase() + field.slice(1)}
                 <input
                   type="number"
                   min={0}
-                  className="form-input"
                   value={form[field]}
                   disabled={!selectedDate}
                   onChange={e => handleInput(field, e.target.value)}
@@ -149,13 +150,12 @@ export default function AttendancePage() {
       )}
 
       {/* History table */}
-      <div className="table-card">
+      <div className="card">
         <h2 className="section-title">History</h2>
         {history.length === 0 ? (
           <p className="empty-state">No records yet.</p>
         ) : (
-          <div className="table-wrapper">
-            <table className="data-table">
+          <table>
               <thead>
                 <tr>
                   <th>Date</th>
@@ -186,7 +186,6 @@ export default function AttendancePage() {
                 ))}
               </tbody>
             </table>
-          </div>
         )}
       </div>
     </div>
