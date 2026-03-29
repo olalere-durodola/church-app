@@ -5,19 +5,23 @@ import MembersListPage from './pages/MembersListPage';
 import AddMemberPage from './pages/AddMemberPage';
 import MemberDetailPage from './pages/MemberDetailPage';
 import BirthdayDashboardPage from './pages/BirthdayDashboardPage';
+import AttendancePage from './pages/AttendancePage';
 import { useAuth } from './hooks/useAuth';
 
 function Nav() {
   const { logout } = useAuth();
   return (
     <nav className="nav">
-      <div className="nav-brand">✝ Grace Church</div>
+      <div className="nav-brand">✝ R.C.C.G Covenant Embassy</div>
       <div className="nav-links">
         <NavLink to="/members" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
           Members
         </NavLink>
         <NavLink to="/birthdays" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
           Birthdays
+        </NavLink>
+        <NavLink to="/attendance" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
+          Attendance
         </NavLink>
       </div>
       <button className="nav-signout" onClick={logout}>Sign out</button>
@@ -44,6 +48,7 @@ export default function App() {
         <Route path="/members/new" element={<ProtectedRoute><Layout><AddMemberPage /></Layout></ProtectedRoute>} />
         <Route path="/members/:id" element={<ProtectedRoute><Layout><MemberDetailPage /></Layout></ProtectedRoute>} />
         <Route path="/birthdays" element={<ProtectedRoute><Layout><BirthdayDashboardPage /></Layout></ProtectedRoute>} />
+        <Route path="/attendance" element={<ProtectedRoute><Layout><AttendancePage /></Layout></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );

@@ -14,5 +14,9 @@ service cloud.firestore {
     match /members/{memberId} {
       allow read, write: if isAdmin();
     }
+
+    match /attendance/{date} {
+      allow read, write: if isAdmin();
+    }
   }
 }
