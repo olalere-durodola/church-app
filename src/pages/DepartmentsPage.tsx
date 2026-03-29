@@ -1,14 +1,16 @@
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, useCallback } from 'react';
 import {
   collection, getDocs, addDoc, deleteDoc, doc, Timestamp,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Department } from '../types/department';
+import type { Member } from '../types/member';
+import StatusBadge from '../components/StatusBadge';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function DepartmentsPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [memberCounts, setMemberCounts] = useState<Map<string, number>>(new Map());
+  const [membersByDept, setMembersByDept] = useState<Map<string, Member[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -16,6 +18,8 @@ export default function DepartmentsPage() {
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const [selectedDept, setSelectedDept] = useState<Department | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -28,16 +32,30 @@ export default function DepartmentsPage() {
           .sort((a, b) => a.name.localeCompare(b.name));
         setDepartments(depts);
 
-        const counts = new Map<string, number>();
+        const byDept = new Map<string, Member[]>();
         memberSnap.docs.forEach(d => {
-          const dept = d.data().department as string | null;
-          if (dept) counts.set(dept, (counts.get(dept) ?? 0) + 1);
+          const m = { id: d.id, ...d.data() } as Member;
+          if (m.department) {
+            const list = byDept.get(m.department) ?? [];
+            list.push(m);
+            byDept.set(m.department, list);
+          }
         });
-        setMemberCounts(counts);
+        setMembersByDept(byDept);
       })
       .catch(() => setFetchError('Failed to load departments.'))
       .finally(() => setLoading(false));
   }, []);
+
+  const closeModal = useCallback(() => setSelectedDept(null), []);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') closeModal();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [closeModal]);
 
   async function handleAdd(e: FormEvent) {
     e.preventDefault();
@@ -69,7 +87,7 @@ export default function DepartmentsPage() {
   }
 
   async function handleDelete(dept: Department) {
-    const count = memberCounts.get(dept.name) ?? 0;
+    const count = (membersByDept.get(dept.name) ?? []).length;
     if (count > 0) {
       setDeleteError(`Cannot delete "${dept.name}" — ${count} member${count === 1 ? '' : 's'} currently assigned.`);
       return;
@@ -84,6 +102,8 @@ export default function DepartmentsPage() {
   }
 
   if (loading) return <LoadingSpinner />;
+
+  const modalMembers = selectedDept ? (membersByDept.get(selectedDept.name) ?? []) : [];
 
   return (
     <div className="page">
@@ -127,12 +147,16 @@ export default function DepartmentsPage() {
             </thead>
             <tbody>
               {departments.map(dept => {
-                const count = memberCounts.get(dept.name) ?? 0;
+                const count = (membersByDept.get(dept.name) ?? []).length;
                 return (
-                  <tr key={dept.id}>
+                  <tr
+                    key={dept.id}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => setSelectedDept(dept)}
+                  >
                     <td>{dept.name}</td>
                     <td>{count}</td>
-                    <td style={{ width: '1px', whiteSpace: 'nowrap' }}>
+                    <td style={{ width: '1px', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
                       <button
                         className="btn-danger"
                         onClick={() => handleDelete(dept)}
@@ -151,6 +175,35 @@ export default function DepartmentsPage() {
       </div>
 
       {deleteError && <p className="error-message" style={{ marginTop: '1rem' }}>{deleteError}</p>}
+
+      {/* Members modal */}
+      {selectedDept && (
+        <div className="modal-backdrop" onClick={closeModal} role="dialog" aria-modal="true">
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{selectedDept.name} — {modalMembers.length} member{modalMembers.length !== 1 ? 's' : ''}</h2>
+              <button className="modal-close" onClick={closeModal} aria-label="Close">✕</button>
+            </div>
+            <div className="modal-body">
+              {modalMembers.length === 0 ? (
+                <p className="modal-empty">No members assigned to this department.</p>
+              ) : (
+                modalMembers
+                  .sort((a, b) => a.fullName.localeCompare(b.fullName))
+                  .map(m => (
+                    <div key={m.id} className="modal-member-row">
+                      <div>
+                        <div className="modal-member-name">{m.firstName} {m.lastName}</div>
+                        {m.phone && <div className="modal-member-phone">{m.phone}</div>}
+                      </div>
+                      <StatusBadge status={m.status} />
+                    </div>
+                  ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
