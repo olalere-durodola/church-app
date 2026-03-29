@@ -38,7 +38,7 @@ The document ID is the date string (e.g. `2026-03-29`). This ensures one record 
 
 ## Firestore Security Rules
 
-Add to `firestore.rules`:
+Add the following `match` block **inside** the existing `service cloud.firestore { match /databases/{database}/documents { ... } }` block in `firestore.rules`, alongside the existing `admins` and `members` rules:
 
 ```
 match /attendance/{date} {
@@ -77,8 +77,9 @@ match /attendance/{date} {
 ### Bottom Section — History Table
 
 - Fetches all attendance records from Firestore on page load
+- Shows a loading spinner while fetching; shows an error message if the fetch fails
 - Sorted by date descending (newest first)
-- Columns: Date, Men, Women, Children, Visitors, Total
+- Columns: Date, Men, Women, Children, Visitors, Total, Last Updated
 - Clicking a row selects that date in the calendar and loads it into the form
 - Shows "No records yet." when empty
 
@@ -104,7 +105,9 @@ src/
 - **Total is always derived:** computed as `men + women + children + visitors` before saving. Never entered manually.
 - **Pre-fill on date select:** when clicking a date that has a record, all four inputs populate automatically.
 - **Calendar dot indicators:** derived from the list of attendance records fetched on page load — no extra Firestore reads needed.
-- **No delete:** records can be updated but not deleted (set all values to 0 to effectively clear).
+- **No delete:** records can be updated but not deleted (set all values to 0 to effectively clear). Zero-value records still appear in the history table and still show a blue dot on the calendar — they are treated as valid records.
+- **Pie chart visibility:** the chart is only shown when a date is selected AND that date has an existing saved record with a non-zero total. If the selected date has no record yet (new entry), the chart is hidden.
+- **Form disabled state:** when no date is selected, all four inputs and the Save button are disabled and a message reads "Select a date to record attendance."
 
 ## Out of Scope
 
