@@ -800,3 +800,11 @@ textarea:disabled {
 .cal-selected .cal-dot {
   background: rgba(255,255,255,0.8);
 }
+
+/* ── Attendance Chart ───────────────────────────────────────── */
+.chart-wrapper {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
