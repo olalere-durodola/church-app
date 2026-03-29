@@ -48,9 +48,20 @@ export default function MemberDetailPage() {
   const [gender, setGender] = useState<'Male' | 'Female'>('Male');
   const [status, setStatus] = useState<'Active' | 'Inactive' | 'Visitor'>('Active');
   const [membershipDate, setMembershipDate] = useState('');
+  const [department, setDepartment] = useState('');
+  const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    getDocs(collection(db, 'departments'))
+      .then(snap => {
+        const names = snap.docs.map(d => d.data().name as string).sort();
+        setDepartmentOptions(names);
+      })
+      .catch(() => {/* non-critical */});
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -74,6 +85,7 @@ export default function MemberDetailPage() {
     setGender(m.gender);
     setStatus(m.status);
     setMembershipDate(m.membershipDate ? m.membershipDate.toDate().toISOString().split('T')[0] : '');
+    setDepartment(m.department ?? '');
     setNotes(m.notes);
     setSaveError('');
     setEditing(true);
@@ -116,6 +128,7 @@ export default function MemberDetailPage() {
         gender,
         status,
         membershipDate: membershipDate ? Timestamp.fromDate(new Date(membershipDate)) : null,
+        department: department || null,
         notes,
       };
       await updateDoc(doc(db, 'members', id), updates);
@@ -245,6 +258,15 @@ export default function MemberDetailPage() {
                 <option value="Inactive">Inactive</option>
               </select>
             </div>
+          </div>
+          <div className="form-group">
+            <label>Department</label>
+            <select value={department} onChange={e => setDepartment(e.target.value)}>
+              <option value="">— None —</option>
+              {departmentOptions.map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
           </div>
           <div className="form-group">
             <label>Notes</label>
