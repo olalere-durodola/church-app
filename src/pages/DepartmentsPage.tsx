@@ -60,14 +60,13 @@ export default function DepartmentsPage() {
 
   // Derived: members in a given department
   function membersOf(deptName: string) {
-    return allMembers.filter(m => m.department === deptName)
+    return allMembers.filter(m => m.departments.includes(deptName))
       .sort((a, b) => a.fullName.localeCompare(b.fullName));
   }
 
-  // Derived: members NOT in the given department (available to add)
   function availableMembers(deptName: string) {
     return allMembers
-      .filter(m => m.department !== deptName)
+      .filter(m => !m.departments.includes(deptName))
       .sort((a, b) => a.fullName.localeCompare(b.fullName));
   }
 
@@ -75,9 +74,11 @@ export default function DepartmentsPage() {
     if (!editDept || !addMemberId) return;
     setMemberOpError(null);
     try {
-      await updateDoc(doc(db, 'members', addMemberId), { department: editDept.name });
+      const target = allMembers.find(m => m.id === addMemberId);
+      const updated = [...(target?.departments ?? []), editDept.name];
+      await updateDoc(doc(db, 'members', addMemberId), { departments: updated });
       setAllMembers(prev =>
-        prev.map(m => m.id === addMemberId ? { ...m, department: editDept.name } : m)
+        prev.map(m => m.id === addMemberId ? { ...m, departments: updated } : m)
       );
       setAddMemberId('');
     } catch {
@@ -85,12 +86,14 @@ export default function DepartmentsPage() {
     }
   }
 
-  async function handleRemoveMember(memberId: string) {
+  async function handleRemoveMember(memberId: string, deptName: string) {
     setMemberOpError(null);
     try {
-      await updateDoc(doc(db, 'members', memberId), { department: null });
+      const target = allMembers.find(m => m.id === memberId);
+      const updated = (target?.departments ?? []).filter(d => d !== deptName);
+      await updateDoc(doc(db, 'members', memberId), { departments: updated });
       setAllMembers(prev =>
-        prev.map(m => m.id === memberId ? { ...m, department: null } : m)
+        prev.map(m => m.id === memberId ? { ...m, departments: updated } : m)
       );
     } catch {
       setMemberOpError('Failed to remove member. Try again.');
@@ -271,7 +274,7 @@ export default function DepartmentsPage() {
                     <option value="">— Select member —</option>
                     {available.map(m => (
                       <option key={m.id} value={m.id}>
-                        {m.firstName} {m.lastName}{m.department ? ` (${m.department})` : ''}
+                        {m.firstName} {m.lastName}{m.departments.length ? ` (${m.departments.join(', ')})` : ''}
                       </option>
                     ))}
                   </select>
@@ -304,7 +307,7 @@ export default function DepartmentsPage() {
                       <button
                         className="btn-danger"
                         style={{ padding: '0.2rem 0.6rem', fontSize: '0.78rem' }}
-                        onClick={() => handleRemoveMember(m.id)}
+                        onClick={() => handleRemoveMember(m.id, editDept!.name)}
                       >
                         Remove
                       </button>

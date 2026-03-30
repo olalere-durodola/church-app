@@ -19,7 +19,7 @@ export default function AddMemberPage() {
   const [gender, setGender] = useState<'Male' | 'Female'>('Male');
   const [status, setStatus] = useState<'Active' | 'Inactive' | 'Visitor'>('Visitor');
   const [membershipDate, setMembershipDate] = useState('');
-  const [department, setDepartment] = useState('');
+  const [departments, setDepartments] = useState<string[]>([]);
   const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
@@ -71,7 +71,7 @@ export default function AddMemberPage() {
         birthdayDay: hasDay ? parseInt(birthdayDay, 10) : null,
         gender,
         status,
-        department: department || null,
+        departments,
         membershipDate: membershipDate ? Timestamp.fromDate(new Date(membershipDate)) : null,
         notes,
         createdAt: Timestamp.now(),
@@ -179,15 +179,23 @@ export default function AddMemberPage() {
             </div>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="department">Department</label>
-            <select id="department" value={department} onChange={e => setDepartment(e.target.value)}>
-              <option value="">— None —</option>
-              {departmentOptions.map(name => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
-          </div>
+          {departmentOptions.length > 0 && (
+            <div className="form-group">
+              <label>Departments</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.25rem' }}>
+                {departmentOptions.map(name => (
+                  <label key={name} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 'normal', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={departments.includes(name)}
+                      onChange={e => setDepartments(prev => e.target.checked ? [...prev, name] : prev.filter(d => d !== name))}
+                    />
+                    {name}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="form-group">
             <label htmlFor="notes">Notes</label>

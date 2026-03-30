@@ -14,7 +14,7 @@ function makeMember(overrides: Partial<Member> & { id: string }): Member {
     address: '',
     gender: 'Male',
     status: 'Active',
-    department: null,
+    departments: [],
     membershipDate: null,
     notes: '',
     createdAt: Timestamp.now(),

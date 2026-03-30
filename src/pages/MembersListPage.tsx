@@ -27,9 +27,7 @@ export default function MembersListPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const departments = Array.from(
-    new Set(members.map(m => m.department).filter((d): d is string => d !== null))
-  ).sort();
+  const departments = Array.from(new Set(members.flatMap(m => m.departments))).sort();
 
   const filtered = filterMembers(members, search, status, gender, department);
 
@@ -99,7 +97,7 @@ export default function MembersListPage() {
                   <td style={{ color: 'var(--color-text-secondary)' }}>{m.phone || '—'}</td>
                   <td><StatusBadge status={m.status} /></td>
                   <td style={{ color: 'var(--color-text-secondary)' }}>{m.gender}</td>
-                  <td style={{ color: 'var(--color-text-secondary)' }}>{m.department ?? '—'}</td>
+                  <td style={{ color: 'var(--color-text-secondary)' }}>{m.departments.length ? m.departments.join(', ') : '—'}</td>
                 </tr>
               ))}
             </tbody>

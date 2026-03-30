@@ -12,7 +12,7 @@ export interface Member {
   birthdayDay: number | null;
   gender: 'Male' | 'Female';
   status: 'Active' | 'Inactive' | 'Visitor';
-  department: string | null;
+  departments: string[];
   membershipDate: Timestamp | null;
   notes: string;
   createdAt: Timestamp;

@@ -13,7 +13,7 @@ function makeMember(overrides: Partial<Member> & { id: string }): Member {
     address: '',
     gender: 'Male',
     status: 'Active',
-    department: null,
+    departments: [],
     membershipDate: null,
     notes: '',
     birthdayMonth: null,
@@ -24,9 +24,9 @@ function makeMember(overrides: Partial<Member> & { id: string }): Member {
 }
 
 const members: Member[] = [
-  makeMember({ id: '1', fullName: 'alice smith', status: 'Active', gender: 'Female', department: 'Choir' }),
-  makeMember({ id: '2', fullName: 'bob jones', status: 'Inactive', gender: 'Male', department: 'Choir' }),
-  makeMember({ id: '3', fullName: 'carol white', status: 'Visitor', gender: 'Female', department: null }),
+  makeMember({ id: '1', fullName: 'alice smith', status: 'Active', gender: 'Female', departments: ['Choir'] }),
+  makeMember({ id: '2', fullName: 'bob jones', status: 'Inactive', gender: 'Male', departments: ['Choir'] }),
+  makeMember({ id: '3', fullName: 'carol white', status: 'Visitor', gender: 'Female', departments: [] }),
 ];
 
 describe('filterMembers', () => {

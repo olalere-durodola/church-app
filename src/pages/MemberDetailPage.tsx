@@ -48,7 +48,7 @@ export default function MemberDetailPage() {
   const [gender, setGender] = useState<'Male' | 'Female'>('Male');
   const [status, setStatus] = useState<'Active' | 'Inactive' | 'Visitor'>('Active');
   const [membershipDate, setMembershipDate] = useState('');
-  const [department, setDepartment] = useState('');
+  const [departments, setDepartments] = useState<string[]>([]);
   const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [saveError, setSaveError] = useState('');
@@ -85,7 +85,7 @@ export default function MemberDetailPage() {
     setGender(m.gender);
     setStatus(m.status);
     setMembershipDate(m.membershipDate ? m.membershipDate.toDate().toISOString().split('T')[0] : '');
-    setDepartment(m.department ?? '');
+    setDepartments(m.departments ?? []);
     setNotes(m.notes);
     setSaveError('');
     setEditing(true);
@@ -128,7 +128,7 @@ export default function MemberDetailPage() {
         gender,
         status,
         membershipDate: membershipDate ? Timestamp.fromDate(new Date(membershipDate)) : null,
-        department: department || null,
+        departments,
         notes,
       };
       await updateDoc(doc(db, 'members', id), updates);
@@ -179,7 +179,7 @@ export default function MemberDetailPage() {
             <Field label="Gender" value={member.gender} />
             <Field label="Birthday" value={formatBirthday(member.birthdayMonth, member.birthdayDay)} />
             <Field label="Membership Date" value={formatDate(member.membershipDate)} />
-            <Field label="Department" value={member.department} />
+            <Field label="Departments" value={member.departments?.length ? member.departments.join(', ') : null} />
           </div>
           {member.notes && (
             <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1.5rem' }}>
@@ -259,15 +259,23 @@ export default function MemberDetailPage() {
               </select>
             </div>
           </div>
-          <div className="form-group">
-            <label>Department</label>
-            <select value={department} onChange={e => setDepartment(e.target.value)}>
-              <option value="">— None —</option>
-              {departmentOptions.map(name => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
-          </div>
+          {departmentOptions.length > 0 && (
+            <div className="form-group">
+              <label>Departments</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.25rem' }}>
+                {departmentOptions.map(name => (
+                  <label key={name} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 'normal', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={departments.includes(name)}
+                      onChange={e => setDepartments(prev => e.target.checked ? [...prev, name] : prev.filter(d => d !== name))}
+                    />
+                    {name}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="form-group">
             <label>Notes</label>
             <textarea rows={3} value={notes} onChange={e => setNotes(e.target.value)} />
