@@ -16,7 +16,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      navigate('/members');
+      navigate('/');
     } catch {
       setError('Invalid email or password.');
     } finally {
@@ -28,7 +28,7 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo">✝</div>
-        <h1 className="login-title">Grace Church</h1>
+        <h1 className="login-title">R.C.C.G Covenant Embassy</h1>
         <p className="login-subtitle">Admin Portal</p>
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">

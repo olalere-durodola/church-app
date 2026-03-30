@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { getInitials, getAvatarColor } from '../utils/avatarUtils';
 
 interface MemberAvatarProps {
@@ -12,7 +13,7 @@ const SIZE_PX = { sm: 28, md: 40, lg: 64 } as const;
 
 export default function MemberAvatar({ photoURL, firstName, lastName, size, onClick }: MemberAvatarProps) {
   const px = SIZE_PX[size];
-  const style: React.CSSProperties = {
+  const style: CSSProperties = {
     width: px,
     height: px,
     borderRadius: '50%',
