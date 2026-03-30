@@ -16,6 +16,7 @@ export interface Member {
   membershipDate: Timestamp | null;
   notes: string;
   createdAt: Timestamp;
+  photoURL?: string;
 }
 
 export type NewMember = Omit<Member, 'id'>;
