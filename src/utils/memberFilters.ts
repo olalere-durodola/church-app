@@ -12,7 +12,7 @@ export function filterMembers(
     if (query && !m.fullName.includes(query)) return false;
     if (status && m.status !== status) return false;
     if (gender && m.gender !== gender) return false;
-    if (department && !m.departments.includes(department)) return false;
+    if (department && !(m.departments ?? []).includes(department)) return false;
     return true;
   });
 }

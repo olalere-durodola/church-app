@@ -39,7 +39,7 @@ export default function AttendancePieChart({ record, date }: Props) {
               <Cell key={entry.name} fill={entry.color} />
             ))}
           </Pie>
-          <Tooltip formatter={(value) => [value, '']} />
+          <Tooltip formatter={(value) => [value]} />
           <Legend />
         </PieChart>
       </ResponsiveContainer>
