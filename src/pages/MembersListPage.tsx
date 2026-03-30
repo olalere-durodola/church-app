@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
 import { Link } from 'react-router-dom';
 import { db } from '../firebase';
 import type { Member } from '../types/member';
 import { filterMembers } from '../utils/memberFilters';
 import LoadingSpinner from '../components/LoadingSpinner';
 import StatusBadge from '../components/StatusBadge';
+import MemberAvatar from '../components/MemberAvatar';
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 export default function MembersListPage() {
   const [members, setMembers] = useState<Member[]>([]);
@@ -19,15 +22,25 @@ export default function MembersListPage() {
 
   useEffect(() => {
     getDocs(collection(db, 'members'))
-      .then(snap => {
+      .then(async snap => {
         const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Member));
+        const now = Date.now();
+        const toPromote = docs.filter(
+          m => m.status === 'Visitor' && m.createdAt && (now - m.createdAt.toMillis()) >= THIRTY_DAYS_MS
+        );
+        if (toPromote.length > 0) {
+          const batch = writeBatch(db);
+          toPromote.forEach(m => batch.update(doc(db, 'members', m.id), { status: 'Active' }));
+          await batch.commit();
+          toPromote.forEach(m => { m.status = 'Active'; });
+        }
         setMembers(docs);
       })
       .catch(() => setError('Failed to load members.'))
       .finally(() => setLoading(false));
   }, []);
 
-  const departments = Array.from(new Set(members.flatMap(m => m.departments))).sort();
+  const departments = Array.from(new Set(members.flatMap(m => m.departments ?? []))).sort();
 
   const filtered = filterMembers(members, search, status, gender, department);
 
@@ -79,6 +92,7 @@ export default function MembersListPage() {
           <table>
             <thead>
               <tr>
+                <th></th>
                 <th>Name</th>
                 <th>Phone</th>
                 <th>Status</th>
@@ -89,6 +103,9 @@ export default function MembersListPage() {
             <tbody>
               {filtered.map(m => (
                 <tr key={m.id}>
+                  <td style={{ width: '1px', paddingRight: 0 }}>
+                    <MemberAvatar photoURL={m.photoURL} firstName={m.firstName} lastName={m.lastName} size="sm" />
+                  </td>
                   <td>
                     <Link to={`/members/${m.id}`} style={{ fontWeight: 500, color: 'var(--color-primary)' }}>
                       {m.firstName} {m.lastName}
@@ -97,7 +114,7 @@ export default function MembersListPage() {
                   <td style={{ color: 'var(--color-text-secondary)' }}>{m.phone || '—'}</td>
                   <td><StatusBadge status={m.status} /></td>
                   <td style={{ color: 'var(--color-text-secondary)' }}>{m.gender}</td>
-                  <td style={{ color: 'var(--color-text-secondary)' }}>{m.departments.length ? m.departments.join(', ') : '—'}</td>
+                  <td style={{ color: 'var(--color-text-secondary)' }}>{m.departments?.length ? m.departments.join(', ') : '—'}</td>
                 </tr>
               ))}
             </tbody>

@@ -7,6 +7,7 @@ import type { Department } from '../types/department';
 import type { Member } from '../types/member';
 import StatusBadge from '../components/StatusBadge';
 import LoadingSpinner from '../components/LoadingSpinner';
+import MemberAvatar from '../components/MemberAvatar';
 
 export default function DepartmentsPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -60,13 +61,13 @@ export default function DepartmentsPage() {
 
   // Derived: members in a given department
   function membersOf(deptName: string) {
-    return allMembers.filter(m => m.departments.includes(deptName))
+    return allMembers.filter(m => (m.departments ?? []).includes(deptName))
       .sort((a, b) => a.fullName.localeCompare(b.fullName));
   }
 
   function availableMembers(deptName: string) {
     return allMembers
-      .filter(m => !m.departments.includes(deptName))
+      .filter(m => !(m.departments ?? []).includes(deptName))
       .sort((a, b) => a.fullName.localeCompare(b.fullName));
   }
 
@@ -75,7 +76,7 @@ export default function DepartmentsPage() {
     setMemberOpError(null);
     try {
       const target = allMembers.find(m => m.id === addMemberId);
-      const updated = [...(target?.departments ?? []), editDept.name];
+      const updated = [...(target?.departments ?? []).filter(d => d !== editDept.name), editDept.name];
       await updateDoc(doc(db, 'members', addMemberId), { departments: updated });
       setAllMembers(prev =>
         prev.map(m => m.id === addMemberId ? { ...m, departments: updated } : m)
@@ -244,9 +245,12 @@ export default function DepartmentsPage() {
               ) : (
                 viewMembers.map(m => (
                   <div key={m.id} className="modal-member-row">
-                    <div>
-                      <div className="modal-member-name">{m.firstName} {m.lastName}</div>
-                      {m.phone && <div className="modal-member-phone">{m.phone}</div>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <MemberAvatar photoURL={m.photoURL} firstName={m.firstName} lastName={m.lastName} size="sm" />
+                      <div>
+                        <div className="modal-member-name">{m.firstName} {m.lastName}</div>
+                        {m.phone && <div className="modal-member-phone">{m.phone}</div>}
+                      </div>
                     </div>
                     <StatusBadge status={m.status} />
                   </div>
@@ -274,7 +278,7 @@ export default function DepartmentsPage() {
                     <option value="">— Select member —</option>
                     {available.map(m => (
                       <option key={m.id} value={m.id}>
-                        {m.firstName} {m.lastName}{m.departments.length ? ` (${m.departments.join(', ')})` : ''}
+                        {m.firstName} {m.lastName}{m.departments?.length ? ` (${m.departments.join(', ')})` : ''}
                       </option>
                     ))}
                   </select>
@@ -298,9 +302,12 @@ export default function DepartmentsPage() {
               ) : (
                 editMembers.map(m => (
                   <div key={m.id} className="modal-member-row">
-                    <div>
-                      <div className="modal-member-name">{m.firstName} {m.lastName}</div>
-                      {m.phone && <div className="modal-member-phone">{m.phone}</div>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <MemberAvatar photoURL={m.photoURL} firstName={m.firstName} lastName={m.lastName} size="sm" />
+                      <div>
+                        <div className="modal-member-name">{m.firstName} {m.lastName}</div>
+                        {m.phone && <div className="modal-member-phone">{m.phone}</div>}
+                      </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                       <StatusBadge status={m.status} />
