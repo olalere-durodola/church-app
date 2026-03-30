@@ -5,9 +5,9 @@
    ============================================================ */
 :root {
   /* Colors */
-  --color-bg: #f8fafc;
-  --color-surface: #ffffff;
-  --color-sidebar-bg: #1e293b;
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-input-bg: #0f172a;
   --color-sidebar-text: #f1f5f9;
   --color-sidebar-active: #3b82f6;
   --color-primary: #3b82f6;
@@ -17,10 +17,10 @@
   --color-secondary-bg: #ffffff;
   --color-secondary-border: #e2e8f0;
   --color-secondary-hover: #f8fafc;
-  --color-border: #e2e8f0;
-  --color-text-primary: #0f172a;
-  --color-text-secondary: #64748b;
-  --color-text-label: #374151;
+  --color-border: rgba(255, 255, 255, 0.07);
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-label: #475569;
 
   /* Status badge colors */
   --color-badge-active-bg: #dcfce7;
@@ -110,7 +110,7 @@ a {
    ============================================================ */
 .layout {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 240px 1fr;
   min-height: 100vh;
 }
 
@@ -123,7 +123,7 @@ a {
    SIDEBAR
    ============================================================ */
 .sidebar {
-  background-color: var(--color-sidebar-bg);
+  background: linear-gradient(180deg, #1e3a5f 0%, #0f2744 100%);
   color: var(--color-sidebar-text);
   display: flex;
   flex-direction: column;
@@ -135,13 +135,23 @@ a {
 }
 
 .sidebar-brand {
-  padding: 1.25rem 1rem;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
   font-size: 13px;
   font-weight: 700;
   color: var(--color-sidebar-text);
   letter-spacing: -0.01em;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
   line-height: 1.4;
+}
+.sidebar-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .sidebar-nav {
@@ -159,7 +169,7 @@ a {
   padding: 0.5rem 0.75rem;
   font-size: 14px;
   font-weight: 500;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.55);
   border-radius: var(--border-radius);
   transition: var(--transition);
   text-decoration: none;
@@ -168,19 +178,20 @@ a {
 
 .sidebar-link:hover {
   color: var(--color-sidebar-text);
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: rgba(255, 255, 255, 0.07);
 }
 
 .sidebar-link.active {
   color: var(--color-sidebar-text);
-  background-color: rgba(59, 130, 246, 0.15);
+  background-color: rgba(255, 255, 255, 0.15);
   border-left-color: var(--color-sidebar-active);
+  font-weight: 600;
 }
 
 .sidebar-signout {
   background: none;
   border: none;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.4);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -230,8 +241,7 @@ a {
 .card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-md);
-  box-shadow: var(--shadow-card);
+  border-radius: 10px;
   overflow: hidden;
 }
 
@@ -282,7 +292,7 @@ th {
 td {
   padding: 0.875rem 1rem;
   color: var(--color-text-primary);
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--color-border);
   vertical-align: middle;
 }
 
@@ -295,7 +305,7 @@ tbody tr:last-child td {
 }
 
 tbody tr:hover {
-  background-color: var(--color-bg);
+  background-color: rgba(255, 255, 255, 0.03);
 }
 
 tbody tr a {
@@ -364,14 +374,14 @@ button:focus-visible,
 }
 
 .btn-secondary {
-  background-color: var(--color-secondary-bg);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-secondary-border);
+  background-color: transparent;
+  color: #f1f5f9;
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .btn-secondary:hover {
-  background-color: var(--color-secondary-hover);
-  border-color: #cbd5e1;
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 .btn-sm {
@@ -413,8 +423,8 @@ textarea {
   font-size: 14px;
   font-family: var(--font-family);
   color: var(--color-text-primary);
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background-color: var(--color-input-bg);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--border-radius);
   transition: var(--transition);
   appearance: none;
@@ -450,8 +460,7 @@ textarea::placeholder {
 input:disabled,
 select:disabled,
 textarea:disabled {
-  background-color: #f8fafc;
-  color: var(--color-text-secondary);
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
