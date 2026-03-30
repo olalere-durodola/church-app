@@ -1,11 +1,13 @@
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, useRef, FormEvent } from 'react';
 import { doc, getDoc, updateDoc, Timestamp, getDocs, query, collection, where } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useParams, Link } from 'react-router-dom';
-import { db } from '../firebase';
+import { db, storage } from '../firebase';
 import type { Member } from '../types/member';
 import { normalizeFullName, getValidDaysForMonth } from '../utils/memberUtils';
 import LoadingSpinner from '../components/LoadingSpinner';
 import StatusBadge from '../components/StatusBadge';
+import MemberAvatar from '../components/MemberAvatar';
 import { MONTHS } from '../utils/dateConstants';
 
 function formatDate(ts: Timestamp | null): string {
@@ -37,6 +39,10 @@ export default function MemberDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [fetchError, setFetchError] = useState('');
   const [editing, setEditing] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError, setPhotoError] = useState('');
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -141,6 +147,36 @@ export default function MemberDetailPage() {
     }
   }
 
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !member || !id) return;
+    setPhotoError('');
+
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      setPhotoError('Only JPEG, PNG, or WebP images are allowed.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setPhotoError('Image must be smaller than 5 MB.');
+      return;
+    }
+
+    setPhotoUploading(true);
+    try {
+      const storageRef = ref(storage, `photos/${id}`);
+      await uploadBytes(storageRef, file, { contentType: file.type });
+      const photoURL = await getDownloadURL(storageRef);
+      await updateDoc(doc(db, 'members', id), { photoURL });
+      setMember(prev => prev ? { ...prev, photoURL } : prev);
+    } catch {
+      setPhotoError('Failed to upload photo. Please try again.');
+    } finally {
+      setPhotoUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
+
   if (loading) return <LoadingSpinner />;
   if (notFound) return (
     <div className="page">
@@ -161,9 +197,29 @@ export default function MemberDetailPage() {
     return (
       <div className="page">
         <div className="page-header">
-          <div>
-            <h1>{member.firstName} {member.lastName}</h1>
-            <StatusBadge status={member.status} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div>
+              <MemberAvatar
+                photoURL={member.photoURL}
+                firstName={member.firstName}
+                lastName={member.lastName}
+                size="lg"
+                onClick={() => fileInputRef.current?.click()}
+              />
+              {photoUploading && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>Uploading…</div>}
+              {photoError && <div className="error-message" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>{photoError}</div>}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                style={{ display: 'none' }}
+                onChange={handlePhotoChange}
+              />
+            </div>
+            <div>
+              <h1>{member.firstName} {member.lastName}</h1>
+              <StatusBadge status={member.status} />
+            </div>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button className="btn-primary" onClick={() => startEditing(member)}>Edit</button>
