@@ -32,15 +32,22 @@ export default function AttendancePieChart({ record, date }: Props) {
             cx="50%"
             cy="50%"
             outerRadius={100}
-            label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
-            labelLine={true}
+            label={({ name, percent, x, y }) => (
+              <text x={x} y={y} fill="#94a3b8" fontSize={12} textAnchor="middle" dominantBaseline="central">
+                {`${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+              </text>
+            )}
+            labelLine={{ stroke: '#475569' }}
           >
             {data.map(entry => (
               <Cell key={entry.name} fill={entry.color} />
             ))}
           </Pie>
-          <Tooltip formatter={(value) => [value]} />
-          <Legend />
+          <Tooltip
+            formatter={(value) => [value]}
+            contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', color: '#f1f5f9' }}
+          />
+          <Legend wrapperStyle={{ color: '#94a3b8' }} />
         </PieChart>
       </ResponsiveContainer>
     </div>
