@@ -811,16 +811,35 @@ textarea:disabled {
 }
 
 /* ── Attendance Page ────────────────────────────────────────── */
-.attendance-top {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.attendance-columns {
+  display: flex;
   gap: 1.5rem;
-  margin-bottom: 1.5rem;
+  align-items: flex-start;
 }
 
-@media (max-width: 700px) {
-  .attendance-top {
-    grid-template-columns: 1fr;
+.attendance-columns > .cal-wrapper {
+  width: 260px;
+  flex-shrink: 0;
+}
+
+.attendance-columns > .attendance-form-card {
+  flex: 1;
+  min-width: 0;
+}
+
+.attendance-breakdown {
+  width: 180px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .attendance-columns {
+    flex-wrap: wrap;
+  }
+  .attendance-columns > .cal-wrapper,
+  .attendance-breakdown {
+    width: 100%;
+    min-width: 220px;
   }
 }
 
@@ -1131,4 +1150,80 @@ textarea:disabled {
   opacity: 0;
   transition: opacity 0.15s ease;
   border-radius: 50%;
+}
+
+/* ── Attendance Breakdown Panel ─────────────────────────────── */
+.attendance-breakdown {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.breakdown-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.breakdown-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.breakdown-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.78rem;
+}
+
+.breakdown-field-label {
+  color: var(--color-text-secondary);
+}
+
+.breakdown-field-value {
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.breakdown-bar-track {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: var(--border-radius-full);
+  overflow: hidden;
+}
+
+.breakdown-bar-fill {
+  height: 100%;
+  border-radius: var(--border-radius-full);
+  transition: width 0.2s ease;
+}
+
+.breakdown-total {
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.breakdown-total-label {
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.2rem;
+}
+
+.breakdown-total-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1;
 }

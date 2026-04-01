@@ -7,7 +7,6 @@ import { db } from '../firebase';
 import type { AttendanceRecord } from '../types/attendance';
 import { formatDisplayDate } from '../utils/attendanceUtils';
 import AttendanceCalendar from '../components/AttendanceCalendar';
-import AttendancePieChart from '../components/AttendancePieChart';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 interface FormState {
@@ -20,6 +19,13 @@ interface FormState {
 }
 
 const EMPTY_FORM: FormState = { men: 0, women: 0, children: 0, visitors: 0, sermonTitle: '', preacher: '' };
+
+const BREAKDOWN_COLOURS: Record<'men' | 'women' | 'children' | 'visitors', string> = {
+  men: '#3b82f6',
+  women: '#ec4899',
+  children: '#f97316',
+  visitors: '#a855f7',
+};
 
 export default function AttendancePage() {
   const [records, setRecords] = useState<Map<string, AttendanceRecord>>(new Map());
@@ -113,8 +119,6 @@ export default function AttendancePage() {
   }
 
   const recordedDates = new Set(records.keys());
-  const selectedRecord = selectedDate ? records.get(selectedDate) : undefined;
-  const showChart = !!(selectedRecord && selectedRecord.total > 0);
 
   if (loading) return <LoadingSpinner />;
 
@@ -129,13 +133,20 @@ export default function AttendancePage() {
 
       {fetchError && <p className="error-message">{fetchError}</p>}
 
-      <div className="attendance-top">
-        <AttendanceCalendar
-          selectedDate={selectedDate}
-          recordedDates={recordedDates}
-          onSelect={handleDateSelect}
-        />
+      <div className="attendance-columns">
+        {/* Calendar */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <AttendanceCalendar
+            selectedDate={selectedDate}
+            recordedDates={recordedDates}
+            onSelect={handleDateSelect}
+          />
+          <p style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)', paddingLeft: '0.25rem' }}>
+            ● = attendance recorded
+          </p>
+        </div>
 
+        {/* Edit Form */}
         <div className="attendance-form-card">
           <h2 className="section-title">
             {selectedDate ? formatDisplayDate(selectedDate) : 'Record Attendance'}
@@ -190,11 +201,36 @@ export default function AttendancePage() {
           {saveStatus === 'success' && <p className="save-success">Saved!</p>}
           {saveStatus === 'error' && <p className="save-error">Save failed. Try again.</p>}
         </div>
-      </div>
 
-      {showChart && selectedRecord && selectedDate && (
-        <AttendancePieChart record={selectedRecord} date={selectedDate} />
-      )}
+        {/* Breakdown Panel */}
+        <div className="attendance-breakdown">
+          <div className="breakdown-label">Breakdown</div>
+          {(['men', 'women', 'children', 'visitors'] as const).map(field => {
+            const count = selectedDate ? form[field] : null;
+            const pct = count !== null && total > 0 ? Math.round((count / total) * 100) : 0;
+            const color = BREAKDOWN_COLOURS[field];
+            return (
+              <div key={field} className="breakdown-row">
+                <div className="breakdown-row-top">
+                  <span className="breakdown-field-label">
+                    {field.charAt(0).toUpperCase() + field.slice(1)}
+                  </span>
+                  <span className="breakdown-field-value" style={{ color }}>
+                    {count !== null ? `${count} (${pct}%)` : '—'}
+                  </span>
+                </div>
+                <div className="breakdown-bar-track">
+                  <div className="breakdown-bar-fill" style={{ width: `${pct}%`, background: color }} />
+                </div>
+              </div>
+            );
+          })}
+          <div className="breakdown-total">
+            <div className="breakdown-total-label">Total</div>
+            <div className="breakdown-total-value">{selectedDate ? total : '—'}</div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
