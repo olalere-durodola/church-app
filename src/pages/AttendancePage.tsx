@@ -135,7 +135,7 @@ export default function AttendancePage() {
 
       <div className="attendance-columns">
         {/* Calendar */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <div className="attendance-cal-col" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <AttendanceCalendar
             selectedDate={selectedDate}
             recordedDates={recordedDates}

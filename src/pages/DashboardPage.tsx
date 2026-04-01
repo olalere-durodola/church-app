@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, limit } from 'firebase/firestore';
 import { Link } from 'react-router-dom';
 import { db } from '../firebase';
 import type { Member } from '../types/member';
@@ -32,7 +32,7 @@ export default function DashboardPage() {
   useEffect(() => {
     Promise.all([
       getDocs(collection(db, 'members')),
-      getDocs(collection(db, 'attendance')),
+      getDocs(query(collection(db, 'attendance'), limit(100))),
     ])
       .then(([memberSnap, attSnap]) => {
         setMembers(memberSnap.docs.map(d => ({ id: d.id, ...d.data() } as Member)));

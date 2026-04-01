@@ -817,7 +817,7 @@ textarea:disabled {
   align-items: flex-start;
 }
 
-.attendance-columns > .cal-wrapper {
+.attendance-cal-col {
   width: 260px;
   flex-shrink: 0;
 }
@@ -836,7 +836,7 @@ textarea:disabled {
   .attendance-columns {
     flex-wrap: wrap;
   }
-  .attendance-columns > .cal-wrapper,
+  .attendance-cal-col,
   .attendance-breakdown {
     width: 100%;
     min-width: 220px;
