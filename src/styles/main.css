@@ -641,7 +641,7 @@ textarea:disabled {
 .login-title {
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--color-text-primary);
+  color: #0f172a;
   margin-bottom: 0.25rem;
 }
 
@@ -729,7 +729,7 @@ textarea:disabled {
 }
 
 .cal-nav-btn:hover {
-  background: var(--color-secondary-hover);
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .cal-grid {
@@ -769,7 +769,7 @@ textarea:disabled {
 }
 
 .cal-day:hover {
-  background: var(--color-secondary-hover);
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .cal-today {
@@ -923,7 +923,7 @@ textarea:disabled {
 }
 
 .modal-close:hover {
-  background: var(--color-secondary-hover);
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .modal-body {
