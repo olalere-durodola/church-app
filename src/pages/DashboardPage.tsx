@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { Link } from 'react-router-dom';
 import { db } from '../firebase';
 import type { Member } from '../types/member';
@@ -17,6 +17,12 @@ function formatShortDate(ts: { toDate(): Date }): string {
   return `${MONTHS[d.getMonth() + 1]} ${d.getDate()}`;
 }
 
+/** Format a YYYY-MM-DD document-ID date string for display */
+function formatDateId(dateId: string): string {
+  const [, month, day] = dateId.split('-').map(Number);
+  return `${MONTHS[month]} ${day}`;
+}
+
 export default function DashboardPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [attendance, setAttendance] = useState<AttendanceEntry[]>([]);
@@ -26,11 +32,15 @@ export default function DashboardPage() {
   useEffect(() => {
     Promise.all([
       getDocs(collection(db, 'members')),
-      getDocs(query(collection(db, 'attendance'), orderBy('recordedAt', 'desc'), limit(4))),
+      getDocs(collection(db, 'attendance')),
     ])
       .then(([memberSnap, attSnap]) => {
         setMembers(memberSnap.docs.map(d => ({ id: d.id, ...d.data() } as Member)));
-        setAttendance(attSnap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceEntry)));
+        const sorted = attSnap.docs
+          .map(d => ({ id: d.id, ...d.data() } as AttendanceEntry))
+          .sort((a, b) => b.id.localeCompare(a.id))
+          .slice(0, 4);
+        setAttendance(sorted);
       })
       .catch(() => setError('Failed to load dashboard data.'))
       .finally(() => setLoading(false));
@@ -60,12 +70,6 @@ export default function DashboardPage() {
       return diff !== 0 ? diff : a.fullName.localeCompare(b.fullName);
     })
     .slice(0, 5);
-
-  const deptCounts: Record<string, number> = {};
-  members.forEach(m => (m.departments ?? []).forEach(d => {
-    deptCounts[d] = (deptCounts[d] ?? 0) + 1;
-  }));
-  const deptEntries = Object.entries(deptCounts).sort((a, b) => b[1] - a[1]);
 
   const trendRecords = [...attendance].reverse();
   const maxTotal = Math.max(...trendRecords.map(r => r.total), 1);
@@ -99,7 +103,7 @@ export default function DashboardPage() {
           {lastRecord ? (
             <>
               <div className="dash-card-value" style={{ color: '#22c55e' }}>{lastRecord.total}</div>
-              <div className="dash-card-sub">{formatShortDate(lastRecord.recordedAt)}</div>
+              <div className="dash-card-sub">{formatDateId(lastRecord.id)}</div>
             </>
           ) : (
             <>
@@ -188,7 +192,7 @@ export default function DashboardPage() {
           ) : (
             trendRecords.map(r => (
               <div key={r.id} className="dash-bar-row">
-                <div className="dash-bar-label">{formatShortDate(r.recordedAt)}</div>
+                <div className="dash-bar-label">{formatDateId(r.id)}</div>
                 <div className="dash-bar-track">
                   <div className="dash-bar-fill" style={{ width: `${(r.total / maxTotal) * 100}%` }} />
                 </div>
@@ -199,7 +203,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Recently Added */}
-        <div className="card dash-card-tall">
+        <div className="card dash-card-tall dash-card-span2">
           <div className="dash-section-head">
             <span>👤 Recently Added</span>
             <Link to="/members" className="dash-link">All →</Link>
@@ -220,26 +224,6 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Departments */}
-        <div className="card dash-card-span2">
-          <div className="dash-section-head">
-            <span>🏛 Departments</span>
-            <Link to="/departments" className="dash-link">Manage →</Link>
-          </div>
-          {deptEntries.length === 0 ? (
-            <p className="empty-state">No departments yet</p>
-          ) : (
-            deptEntries.map(([name, count]) => (
-              <div key={name} className="dash-bar-row">
-                <div className="dash-bar-label">{name}</div>
-                <div className="dash-bar-track">
-                  <div className="dash-bar-fill" style={{ width: `${(count / (deptEntries[0][1] || 1)) * 100}%`, background: '#a855f7' }} />
-                </div>
-                <div className="dash-bar-num">{count}</div>
-              </div>
-            ))
-          )}
-        </div>
       </div>
     </div>
   );
