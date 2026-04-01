@@ -1,6 +1,6 @@
 import { useState, useEffect, FormEvent, useCallback } from 'react';
 import {
-  collection, getDocs, addDoc, deleteDoc, doc, updateDoc, Timestamp,
+  collection, getDocs, addDoc, deleteDoc, doc, updateDoc, writeBatch, Timestamp,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Department } from '../types/department';
@@ -19,6 +19,7 @@ export default function DepartmentsPage() {
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [confirmDeleteDept, setConfirmDeleteDept] = useState<Department | null>(null);
 
   // View overlay
   const [viewDept, setViewDept] = useState<Department | null>(null);
@@ -27,6 +28,10 @@ export default function DepartmentsPage() {
   const [editDept, setEditDept] = useState<Department | null>(null);
   const [addMemberId, setAddMemberId] = useState('');
   const [memberOpError, setMemberOpError] = useState<string | null>(null);
+
+  // Add Members overlay
+  const [addMembersDept, setAddMembersDept] = useState<Department | null>(null);
+  const [memberSearch, setMemberSearch] = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -49,6 +54,8 @@ export default function DepartmentsPage() {
     setViewDept(null);
     setEditDept(null);
     setMemberOpError(null);
+    setAddMembersDept(null);
+    setMemberSearch('');
   }, []);
 
   useEffect(() => {
@@ -129,17 +136,30 @@ export default function DepartmentsPage() {
   }
 
   async function handleDelete(dept: Department) {
-    const count = membersOf(dept.name).length;
-    if (count > 0) {
-      setDeleteError(`Cannot delete "${dept.name}" — ${count} member${count === 1 ? '' : 's'} currently assigned.`);
-      return;
-    }
     setDeleteError(null);
     try {
+      const affected = membersOf(dept.name);
+      if (affected.length > 0) {
+        const batch = writeBatch(db);
+        affected.forEach(m => {
+          batch.update(doc(db, 'members', m.id), {
+            departments: (m.departments ?? []).filter(d => d !== dept.name),
+          });
+        });
+        await batch.commit();
+        setAllMembers(prev =>
+          prev.map(m => affected.some(a => a.id === m.id)
+            ? { ...m, departments: (m.departments ?? []).filter(d => d !== dept.name) }
+            : m
+          )
+        );
+      }
       await deleteDoc(doc(db, 'departments', dept.id));
       setDepartments(prev => prev.filter(d => d.id !== dept.id));
     } catch {
       setDeleteError('Failed to delete department. Try again.');
+    } finally {
+      setConfirmDeleteDept(null);
     }
   }
 
@@ -212,10 +232,14 @@ export default function DepartmentsPage() {
                           Edit
                         </button>
                         <button
+                          className="btn-primary"
+                          onClick={() => { setAddMembersDept(dept); setMemberSearch(''); }}
+                        >
+                          Add Member
+                        </button>
+                        <button
                           className="btn-danger"
-                          onClick={() => handleDelete(dept)}
-                          disabled={count > 0}
-                          title={count > 0 ? `${count} member${count === 1 ? '' : 's'} assigned` : undefined}
+                          onClick={() => setConfirmDeleteDept(dept)}
                         >
                           Delete
                         </button>
@@ -230,6 +254,37 @@ export default function DepartmentsPage() {
       </div>
 
       {deleteError && <p className="error-message" style={{ marginTop: '1rem' }}>{deleteError}</p>}
+
+      {/* Delete confirmation modal */}
+      {confirmDeleteDept && (() => {
+        const count = membersOf(confirmDeleteDept.name).length;
+        return (
+          <div className="modal-backdrop" onClick={() => setConfirmDeleteDept(null)} role="dialog" aria-modal="true">
+            <div className="modal" style={{ maxWidth: '420px' }} onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>Delete "{confirmDeleteDept.name}"?</h2>
+                <button className="modal-close" onClick={() => setConfirmDeleteDept(null)} aria-label="Close">✕</button>
+              </div>
+              <div style={{ padding: '1.25rem 1.5rem' }}>
+                {count > 0 ? (
+                  <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
+                    This department has <strong style={{ color: 'var(--color-text-primary)' }}>{count} member{count !== 1 ? 's' : ''}</strong> assigned.
+                    They will be removed from this department but not deleted.
+                  </p>
+                ) : (
+                  <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
+                    This will permanently delete the department. This cannot be undone.
+                  </p>
+                )}
+                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                  <button className="btn-secondary" onClick={() => setConfirmDeleteDept(null)}>Cancel</button>
+                  <button className="btn-danger" onClick={() => handleDelete(confirmDeleteDept)}>Delete</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* View overlay */}
       {viewDept && (
@@ -260,6 +315,80 @@ export default function DepartmentsPage() {
           </div>
         </div>
       )}
+
+      {/* Add Members overlay */}
+      {addMembersDept && (() => {
+        const filtered = allMembers
+          .filter(m => {
+            const inDept = (m.departments ?? []).includes(addMembersDept.name);
+            if (inDept) return false;
+            if (!memberSearch.trim()) return true;
+            return m.fullName.toLowerCase().includes(memberSearch.trim().toLowerCase());
+          })
+          .sort((a, b) => a.fullName.localeCompare(b.fullName));
+        const inDept = membersOf(addMembersDept.name);
+        return (
+          <div className="modal-backdrop" onClick={closeAll} role="dialog" aria-modal="true">
+            <div className="modal" onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>Add Member — {addMembersDept.name}</h2>
+                <button className="modal-close" onClick={closeAll} aria-label="Close">✕</button>
+              </div>
+              <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--color-border)' }}>
+                <input
+                  type="text"
+                  placeholder="Search by name…"
+                  value={memberSearch}
+                  onChange={e => setMemberSearch(e.target.value)}
+                  autoFocus
+                  style={{ width: '100%' }}
+                />
+              </div>
+              {inDept.length > 0 && (
+                <div style={{ padding: '0.5rem 1.5rem', fontSize: '0.78rem', color: 'var(--color-text-secondary)', borderBottom: '1px solid var(--color-border)' }}>
+                  Already in department: {inDept.map(m => m.firstName + ' ' + m.lastName).join(', ')}
+                </div>
+              )}
+              <div className="modal-body">
+                {filtered.length === 0 ? (
+                  <p className="modal-empty">{memberSearch.trim() ? 'No members match your search.' : 'All members are already in this department.'}</p>
+                ) : (
+                  filtered.map(m => (
+                    <div key={m.id} className="modal-member-row">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <MemberAvatar photoURL={m.photoURL} firstName={m.firstName} lastName={m.lastName} size="sm" />
+                        <div>
+                          <div className="modal-member-name">{m.firstName} {m.lastName}</div>
+                          {m.departments && m.departments.length > 0 && (
+                            <div className="modal-member-phone">{m.departments.join(', ')}</div>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        className="btn-primary"
+                        style={{ padding: '0.2rem 0.75rem', fontSize: '0.78rem' }}
+                        onClick={async () => {
+                          const updated = [...(m.departments ?? []), addMembersDept.name];
+                          try {
+                            await updateDoc(doc(db, 'members', m.id), { departments: updated });
+                            setAllMembers(prev =>
+                              prev.map(x => x.id === m.id ? { ...x, departments: updated } : x)
+                            );
+                          } catch {
+                            // silently ignore; user can retry
+                          }
+                        }}
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Edit modal */}
       {editDept && (

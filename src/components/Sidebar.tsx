@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import logo from '../assets/logo.jpg';
 
 const NAV_ITEMS = [
   { to: '/',            label: 'Dashboard',   icon: '🏠' },
@@ -13,7 +14,14 @@ export default function Sidebar() {
   const { logout } = useAuth();
   return (
     <aside className="sidebar">
-      <div className="sidebar-brand">✝ R.C.C.G<br />Covenant Embassy</div>
+      <div className="sidebar-brand">
+        <img src={logo} alt="R.C.C.G Covenant Embassy" className="sidebar-logo" />
+        <div>
+          <div style={{ fontSize: '11px', lineHeight: 1.3 }}>Redeemed Christian</div>
+          <div style={{ fontSize: '11px', lineHeight: 1.3 }}>Church of God</div>
+          <div style={{ fontSize: '10px', fontWeight: 400, opacity: 0.65, lineHeight: 1.3 }}>Covenant Embassy</div>
+        </div>
+      </div>
       <nav className="sidebar-nav">
         {NAV_ITEMS.map(({ to, label, icon }) => (
           <NavLink

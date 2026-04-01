@@ -1,5 +1,6 @@
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, FormEvent } from 'react';
 import { collection, addDoc, getDocs, query, where, Timestamp } from 'firebase/firestore';
+
 import { useNavigate, Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { normalizeFullName, getValidDaysForMonth } from '../utils/memberUtils';
@@ -13,26 +14,18 @@ export default function AddMemberPage() {
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [address, setAddress] = useState('');
+  const [addressStreet, setAddressStreet] = useState('');
+  const [addressCity, setAddressCity] = useState('');
+  const [addressState, setAddressState] = useState('');
+  const [addressZip, setAddressZip] = useState('');
   const [birthdayMonth, setBirthdayMonth] = useState('');
   const [birthdayDay, setBirthdayDay] = useState('');
   const [gender, setGender] = useState<'Male' | 'Female'>('Male');
   const [status, setStatus] = useState<'Active' | 'Inactive' | 'Visitor'>('Visitor');
   const [membershipDate, setMembershipDate] = useState('');
-  const [departments, setDepartments] = useState<string[]>([]);
-  const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    getDocs(collection(db, 'departments'))
-      .then(snap => {
-        const names = snap.docs.map(d => d.data().name as string).sort();
-        setDepartmentOptions(names);
-      })
-      .catch(() => {/* non-critical, silently ignore */});
-  }, []);
 
   const selectedMonth = parseInt(birthdayMonth, 10);
   const maxDay = birthdayMonth ? getValidDaysForMonth(selectedMonth) : 31;
@@ -66,12 +59,12 @@ export default function AddMemberPage() {
         fullName,
         phone,
         email,
-        address,
+        address: [addressStreet, addressCity, addressState, addressZip].filter(Boolean).join(', '),
         birthdayMonth: hasMonth ? selectedMonth : null,
         birthdayDay: hasDay ? parseInt(birthdayDay, 10) : null,
         gender,
         status,
-        departments,
+        departments: [],
         membershipDate: membershipDate ? Timestamp.fromDate(new Date(membershipDate)) : null,
         notes,
         createdAt: Timestamp.now(),
@@ -107,9 +100,6 @@ export default function AddMemberPage() {
               <label htmlFor="lastName">Last Name *</label>
               <input id="lastName" value={lastName} onChange={e => setLastName(e.target.value)} required />
             </div>
-          </div>
-
-          <div className="field-row">
             <div className="form-group">
               <label htmlFor="phone">Phone</label>
               <input id="phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} />
@@ -121,8 +111,22 @@ export default function AddMemberPage() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="address">Address</label>
-            <input id="address" value={address} onChange={e => setAddress(e.target.value)} />
+            <label htmlFor="addressStreet">Street Address</label>
+            <input id="addressStreet" value={addressStreet} placeholder="e.g. 1234 Elm St" onChange={e => setAddressStreet(e.target.value)} />
+          </div>
+          <div className="field-row">
+            <div className="form-group">
+              <label htmlFor="addressCity">City</label>
+              <input id="addressCity" value={addressCity} placeholder="e.g. Plano" onChange={e => setAddressCity(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label htmlFor="addressState">State</label>
+              <input id="addressState" value={addressState} placeholder="e.g. TX" onChange={e => setAddressState(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label htmlFor="addressZip">Zip / Postal Code</label>
+              <input id="addressZip" value={addressZip} placeholder="e.g. 75024" onChange={e => setAddressZip(e.target.value)} />
+            </div>
           </div>
 
           <div className="field-row">
@@ -178,24 +182,6 @@ export default function AddMemberPage() {
               </select>
             </div>
           </div>
-
-          {departmentOptions.length > 0 && (
-            <div className="form-group">
-              <label>Departments</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.25rem' }}>
-                {departmentOptions.map(name => (
-                  <label key={name} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 'normal', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={departments.includes(name)}
-                      onChange={e => setDepartments(prev => e.target.checked ? [...prev, name] : prev.filter(d => d !== name))}
-                    />
-                    {name}
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
 
           <div className="form-group">
             <label htmlFor="notes">Notes</label>

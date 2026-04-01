@@ -817,19 +817,11 @@ textarea:disabled {
   align-items: flex-start;
 }
 
-.attendance-cal-col {
-  width: 260px;
-  flex-shrink: 0;
-}
-
-.attendance-columns > .attendance-form-card {
+.attendance-cal-col,
+.attendance-columns > .attendance-form-card,
+.attendance-breakdown {
   flex: 1;
   min-width: 0;
-}
-
-.attendance-breakdown {
-  width: 180px;
-  flex-shrink: 0;
 }
 
 @media (max-width: 900px) {
