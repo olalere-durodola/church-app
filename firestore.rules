@@ -22,5 +22,9 @@ service cloud.firestore {
     match /departments/{deptId} {
       allow read, write: if isAdmin();
     }
+
+    match /leaves/{leaveId} {
+      allow read, write: if isAdmin();
+    }
   }
 }

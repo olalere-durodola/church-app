@@ -8,12 +8,18 @@ const NAV_ITEMS = [
   { to: '/birthdays',   label: 'Birthdays',   icon: '🎂' },
   { to: '/attendance',  label: 'Attendance',  icon: '📋' },
   { to: '/departments', label: 'Departments', icon: '🏛' },
+  { to: '/leave',       label: 'Leave',        icon: '📅' },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+export default function Sidebar({ open, onClose }: SidebarProps) {
   const { logout } = useAuth();
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${open ? ' sidebar-open' : ''}`}>
       <div className="sidebar-brand">
         <img src={logo} alt="R.C.C.G Covenant Embassy" className="sidebar-logo" />
         <div>
@@ -29,8 +35,9 @@ export default function Sidebar() {
             to={to}
             end={to === '/'}
             className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+            onClick={onClose}
           >
-            <span>{icon}</span>
+            <span aria-hidden="true">{icon}</span>
             {label}
           </NavLink>
         ))}

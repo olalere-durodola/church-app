@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, FormEvent } from 'react';
-import { doc, getDoc, updateDoc, Timestamp, getDocs, query, collection, where } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, deleteDoc, getDocs, query, collection, where, writeBatch, Timestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { db, storage } from '../firebase';
-import type { Member } from '../types/member';
+import type { Member, MemberRole } from '../types/member';
 import { normalizeFullName, getValidDaysForMonth } from '../utils/memberUtils';
 import LoadingSpinner from '../components/LoadingSpinner';
 import StatusBadge from '../components/StatusBadge';
@@ -33,8 +33,11 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 
 export default function MemberDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
 
   const [member, setMember] = useState<Member | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [fetchError, setFetchError] = useState('');
@@ -57,6 +60,8 @@ export default function MemberDetailPage() {
   const [departments, setDepartments] = useState<string[]>([]);
   const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
+  const [role, setRole] = useState<MemberRole>(null);
+  const [hodDepartments, setHodDepartments] = useState<string[]>([]);
   const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -93,8 +98,29 @@ export default function MemberDetailPage() {
     setMembershipDate(m.membershipDate ? m.membershipDate.toDate().toISOString().split('T')[0] : '');
     setDepartments(m.departments ?? []);
     setNotes(m.notes);
+    setRole(m.role ?? null);
+    setHodDepartments(m.hodDepartments ?? []);
     setSaveError('');
     setEditing(true);
+  }
+
+  async function handleDelete() {
+    if (!id) return;
+    setDeleteError('');
+    try {
+      // Delete all leave records for this member
+      const leaveSnap = await getDocs(query(collection(db, 'leaves'), where('memberId', '==', id)));
+      if (!leaveSnap.empty) {
+        const batch = writeBatch(db);
+        leaveSnap.docs.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+      }
+      await deleteDoc(doc(db, 'members', id));
+      navigate('/members');
+    } catch {
+      setDeleteError('Failed to delete member. Please try again.');
+      setConfirmDelete(false);
+    }
   }
 
   async function handleSave(e: FormEvent) {
@@ -136,6 +162,8 @@ export default function MemberDetailPage() {
         membershipDate: membershipDate ? Timestamp.fromDate(new Date(membershipDate)) : null,
         departments,
         notes,
+        role: role ?? null,
+        hodDepartments: role === 'hod' ? hodDepartments : [],
       };
       await updateDoc(doc(db, 'members', id), updates);
       setMember(prev => prev ? { ...prev, ...updates } : prev);
@@ -223,6 +251,7 @@ export default function MemberDetailPage() {
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button className="btn-primary" onClick={() => startEditing(member)}>Edit</button>
+            <button className="btn-danger" onClick={() => setConfirmDelete(true)}>Delete</button>
             <Link to="/members"><button className="btn-secondary">← Back</button></Link>
           </div>
         </div>
@@ -236,6 +265,7 @@ export default function MemberDetailPage() {
             <Field label="Birthday" value={formatBirthday(member.birthdayMonth, member.birthdayDay)} />
             <Field label="Membership Date" value={formatDate(member.membershipDate)} />
             <Field label="Departments" value={member.departments?.length ? member.departments.join(', ') : null} />
+            {member.role && <Field label="Role" value={member.role === 'hod' ? `Head of Dept${member.hodDepartments?.length ? ` (${member.hodDepartments.join(', ')})` : ''}` : member.role === 'pastor' ? 'Pastor' : 'Minister in Charge'} />}
           </div>
           {member.notes && (
             <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1.5rem' }}>
@@ -243,6 +273,27 @@ export default function MemberDetailPage() {
             </div>
           )}
         </div>
+        {deleteError && <p className="error-message" style={{ marginTop: '1rem' }}>{deleteError}</p>}
+
+        {confirmDelete && (
+          <div className="modal-backdrop" onClick={() => setConfirmDelete(false)} role="dialog" aria-modal="true">
+            <div className="modal" style={{ maxWidth: '420px' }} onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>Delete "{member.firstName} {member.lastName}"?</h2>
+                <button className="modal-close" onClick={() => setConfirmDelete(false)} aria-label="Close">✕</button>
+              </div>
+              <div style={{ padding: '1.25rem 1.5rem' }}>
+                <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
+                  This will permanently delete this member and cannot be undone.
+                </p>
+                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                  <button className="btn-secondary" autoFocus onClick={() => setConfirmDelete(false)}>Cancel</button>
+                  <button className="btn-danger" onClick={handleDelete}>Delete</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -325,6 +376,34 @@ export default function MemberDetailPage() {
                       type="checkbox"
                       checked={departments.includes(name)}
                       onChange={e => setDepartments(prev => e.target.checked ? [...prev, name] : prev.filter(d => d !== name))}
+                    />
+                    {name}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="field-row">
+            <div className="form-group">
+              <label>Role</label>
+              <select value={role ?? ''} onChange={e => { setRole((e.target.value || null) as MemberRole); setHodDepartments([]); }}>
+                <option value="">— None —</option>
+                <option value="pastor">Pastor</option>
+                <option value="minister">Minister in Charge</option>
+                <option value="hod">Head of Department</option>
+              </select>
+            </div>
+          </div>
+          {role === 'hod' && departmentOptions.length > 0 && (
+            <div className="form-group">
+              <label>HOD of Departments</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.25rem' }}>
+                {departmentOptions.map(name => (
+                  <label key={name} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 'normal', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={hodDepartments.includes(name)}
+                      onChange={e => setHodDepartments(prev => e.target.checked ? [...prev, name] : prev.filter(d => d !== name))}
                     />
                     {name}
                   </label>

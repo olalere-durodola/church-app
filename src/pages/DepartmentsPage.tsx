@@ -277,7 +277,7 @@ export default function DepartmentsPage() {
                   </p>
                 )}
                 <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-                  <button className="btn-secondary" onClick={() => setConfirmDeleteDept(null)}>Cancel</button>
+                  <button className="btn-secondary" autoFocus onClick={() => setConfirmDeleteDept(null)}>Cancel</button>
                   <button className="btn-danger" onClick={() => handleDelete(confirmDeleteDept)}>Delete</button>
                 </div>
               </div>

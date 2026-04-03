@@ -152,7 +152,9 @@ export default function AttendancePage() {
             {selectedDate ? formatDisplayDate(selectedDate) : 'Record Attendance'}
           </h2>
           {!selectedDate && (
-            <p className="attendance-form-prompt">Select a date to record attendance.</p>
+            <p className="attendance-form-prompt">
+              Select a date on the calendar to begin recording attendance.
+            </p>
           )}
           <div className="form-fields">
             {(['men', 'women', 'children', 'visitors'] as const).map(field => (
@@ -190,7 +192,6 @@ export default function AttendancePage() {
               onChange={e => handleText('preacher', e.target.value)}
             />
           </label>
-          <div className="attendance-total">Total: <strong>{total}</strong></div>
           <button
             className="btn btn-primary"
             onClick={handleSave}
@@ -206,8 +207,8 @@ export default function AttendancePage() {
         <div className="attendance-breakdown">
           <div className="breakdown-label">Breakdown</div>
           {(['men', 'women', 'children', 'visitors'] as const).map(field => {
-            const count = selectedDate ? form[field] : null;
-            const pct = count !== null && total > 0 ? Math.round((count / total) * 100) : 0;
+            const count = form[field];
+            const pct = total > 0 ? Math.round((count / total) * 100) : 0;
             const color = BREAKDOWN_COLOURS[field];
             return (
               <div key={field} className="breakdown-row">
@@ -216,7 +217,7 @@ export default function AttendancePage() {
                     {field.charAt(0).toUpperCase() + field.slice(1)}
                   </span>
                   <span className="breakdown-field-value" style={{ color }}>
-                    {count !== null ? `${count} (${pct}%)` : '—'}
+                    {count} {total > 0 && <span style={{ opacity: 0.6 }}>({pct}%)</span>}
                   </span>
                 </div>
                 <div className="breakdown-bar-track">
@@ -227,7 +228,7 @@ export default function AttendancePage() {
           })}
           <div className="breakdown-total">
             <div className="breakdown-total-label">Total</div>
-            <div className="breakdown-total-value">{selectedDate ? total : '—'}</div>
+            <div className="breakdown-total-value">{total}</div>
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { db } from '../firebase';
 import type { Member } from '../types/member';
 import type { AttendanceRecord } from '../types/attendance';
+import type { Leave } from '../types/leave';
 import { getBirthdaysComingUp } from '../utils/birthdayUtils';
 import { MONTHS } from '../utils/dateConstants';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -26,6 +27,7 @@ function formatDateId(dateId: string): string {
 export default function DashboardPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [attendance, setAttendance] = useState<AttendanceEntry[]>([]);
+  const [leaves, setLeaves] = useState<Leave[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -33,14 +35,22 @@ export default function DashboardPage() {
     Promise.all([
       getDocs(collection(db, 'members')),
       getDocs(query(collection(db, 'attendance'), limit(100))),
+      getDocs(collection(db, 'leaves')),
     ])
-      .then(([memberSnap, attSnap]) => {
+      .then(([memberSnap, attSnap, leaveSnap]) => {
         setMembers(memberSnap.docs.map(d => ({ id: d.id, ...d.data() } as Member)));
         const sorted = attSnap.docs
           .map(d => ({ id: d.id, ...d.data() } as AttendanceEntry))
           .sort((a, b) => b.id.localeCompare(a.id))
           .slice(0, 4);
         setAttendance(sorted);
+        const today = new Date().toISOString().split('T')[0];
+        setLeaves(
+          leaveSnap.docs
+            .map(d => ({ id: d.id, ...d.data() } as Leave))
+            .filter(l => l.endDate >= today)
+            .sort((a, b) => a.startDate.localeCompare(b.startDate))
+        );
       })
       .catch(() => setError('Failed to load dashboard data.'))
       .finally(() => setLoading(false));
@@ -57,7 +67,13 @@ export default function DashboardPage() {
   const inactiveCount = members.filter(m => m.status === 'Inactive').length;
 
   const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
   const newThisMonth = members.filter(m => m.createdAt?.toDate() >= thisMonthStart).length;
+  const newLastMonth = members.filter(m => {
+    const d = m.createdAt?.toDate();
+    return d && d >= lastMonthStart && d < thisMonthStart;
+  }).length;
+  const activePercent = totalMembers > 0 ? Math.round((activeCount / totalMembers) * 100) : 0;
 
   const lastRecord = attendance[0] ?? null;
 
@@ -92,9 +108,7 @@ export default function DashboardPage() {
         <div className="card dash-card">
           <div className="dash-card-label">Total Members</div>
           <div className="dash-card-value" style={{ color: 'var(--color-primary)' }}>{totalMembers}</div>
-          <div className="dash-card-sub">
-            {newThisMonth > 0 ? `+${newThisMonth} this month` : 'No new members this month'}
-          </div>
+          <div className="dash-card-sub">{activePercent}% active</div>
         </div>
 
         {/* Last Attendance */}
@@ -113,9 +127,33 @@ export default function DashboardPage() {
           )}
         </div>
 
+        {/* New This Month */}
+        <div className="card dash-card">
+          <div className="dash-card-label">New This Month</div>
+          <div className="dash-card-value" style={{ color: '#06b6d4' }}>{newThisMonth}</div>
+          <div className="dash-card-sub">
+            {newLastMonth > 0
+              ? `${newThisMonth >= newLastMonth ? '+' : ''}${newThisMonth - newLastMonth} vs last month`
+              : 'No data from last month'}
+          </div>
+        </div>
+
+        {/* On Leave */}
+        <Link to="/leave" style={{ textDecoration: 'none', display: 'block', height: '100%' }}>
+          <div className="card dash-card" style={{ height: '100%' }}>
+            <div className="dash-card-label">On Leave</div>
+            <div className="dash-card-value" style={{ color: '#a855f7' }}>{leaves.length}</div>
+            <div className="dash-card-sub">
+              {leaves.length > 0
+                ? `Next: ${leaves[0].memberName.split(' ')[0]} — ${new Date(leaves[0].startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                : 'No upcoming leave'}
+            </div>
+          </div>
+        </Link>
+
         {/* Birthdays This Week */}
         <div className="card dash-card">
-          <div className="dash-card-label">Birthdays This Week</div>
+          <div className="dash-card-label">Birthdays</div>
           {upcomingBirthdays.length > 0 && nearestBirthday.birthdayMonth !== null && nearestBirthday.birthdayDay !== null ? (
             <>
               <div className="dash-card-value" style={{ color: '#f97316' }}>{upcomingBirthdays.length}</div>
@@ -135,8 +173,8 @@ export default function DashboardPage() {
         </div>
 
         {/* Member Breakdown */}
-        <div className="card dash-card dash-card-span2">
-          <div className="dash-card-label">Member Breakdown</div>
+        <div className="card dash-card">
+          <div className="dash-card-label">Member Breakdown <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--color-text-secondary)', fontSize: '0.7rem' }}>of {totalMembers}</span></div>
           <div className="dash-breakdown">
             <div>
               <div className="dash-breakdown-value" style={{ color: 'var(--color-primary)' }}>{activeCount}</div>
@@ -154,74 +192,80 @@ export default function DashboardPage() {
         </div>
 
         {/* Upcoming Birthdays */}
-        <div className="card dash-card-tall">
+        <div className="card dash-card">
           <div className="dash-section-head">
             <span>🎂 Upcoming Birthdays</span>
             <Link to="/birthdays" className="dash-link">All →</Link>
           </div>
-          {upcomingBirthdays.length === 0 ? (
-            <p className="empty-state">No upcoming birthdays</p>
-          ) : (
-            upcomingBirthdays.map(m => {
-              const days = m.birthdayMonth !== null && m.birthdayDay !== null
-                ? daysUntil(m.birthdayMonth, m.birthdayDay) : 0;
-              return (
-                <div key={m.id} className="dash-list-row">
-                  <div>
-                    <div className="dash-list-name">{m.firstName} {m.lastName}</div>
-                    <div className="dash-list-sub">
-                      {m.birthdayMonth !== null && m.birthdayDay !== null
-                        ? `${MONTHS[m.birthdayMonth]} ${m.birthdayDay}` : ''}
+          <div className="dash-scroll-list">
+            {upcomingBirthdays.length === 0 ? (
+              <p className="empty-state">No upcoming birthdays</p>
+            ) : (
+              upcomingBirthdays.map(m => {
+                const days = m.birthdayMonth !== null && m.birthdayDay !== null
+                  ? daysUntil(m.birthdayMonth, m.birthdayDay) : 0;
+                return (
+                  <div key={m.id} className="dash-list-row">
+                    <div>
+                      <div className="dash-list-name">{m.firstName} {m.lastName}</div>
+                      <div className="dash-list-sub">
+                        {m.birthdayMonth !== null && m.birthdayDay !== null
+                          ? `${MONTHS[m.birthdayMonth]} ${m.birthdayDay}` : ''}
+                      </div>
                     </div>
+                    <span className="dash-badge-orange">{days === 0 ? 'Today' : `${days}d`}</span>
                   </div>
-                  <span className="dash-badge-orange">{days === 0 ? 'Today' : `${days}d`}</span>
-                </div>
-              );
-            })
-          )}
+                );
+              })
+            )}
+          </div>
         </div>
 
         {/* Attendance Trend */}
-        <div className="card dash-card-span2">
+        <div className="card dash-card">
           <div className="dash-section-head">
             <span>📊 Attendance Trend</span>
             <Link to="/attendance/history" className="dash-link">History →</Link>
           </div>
-          {trendRecords.length === 0 ? (
-            <p className="empty-state">No attendance records yet</p>
-          ) : (
-            trendRecords.map(r => (
-              <div key={r.id} className="dash-bar-row">
-                <div className="dash-bar-label">{formatDateId(r.id)}</div>
-                <div className="dash-bar-track">
-                  <div className="dash-bar-fill" style={{ width: `${(r.total / maxTotal) * 100}%` }} />
+          <div className="dash-scroll-list">
+            {trendRecords.length === 0 ? (
+              <p className="empty-state">No attendance records yet</p>
+            ) : (
+              trendRecords.map(r => (
+                <div key={r.id} className="dash-bar-row">
+                  <div className="dash-bar-label">{formatDateId(r.id)}</div>
+                  <div className="dash-bar-track">
+                    <div className="dash-bar-fill" style={{ width: `${(r.total / maxTotal) * 100}%` }} />
+                  </div>
+                  <div className="dash-bar-num">{r.total}</div>
                 </div>
-                <div className="dash-bar-num">{r.total}</div>
-              </div>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </div>
 
         {/* Recently Added */}
-        <div className="card dash-card-tall dash-card-span2">
+        <div className="card dash-card">
           <div className="dash-section-head">
             <span>👤 Recently Added</span>
             <Link to="/members" className="dash-link">All →</Link>
           </div>
-          {recentlyAdded.length === 0 ? (
-            <p className="empty-state">No members yet</p>
-          ) : (
-            recentlyAdded.map(m => (
-              <div key={m.id} className="dash-list-row">
-                <MemberAvatar photoURL={m.photoURL} firstName={m.firstName} lastName={m.lastName} size="md" />
-                <div style={{ flex: 1 }}>
-                  <div className="dash-list-name">{m.firstName} {m.lastName}</div>
-                  <div className="dash-list-sub">{m.createdAt ? formatShortDate(m.createdAt) : ''}</div>
+          <div className="dash-scroll-list">
+            {recentlyAdded.length === 0 ? (
+              <p className="empty-state">No members yet</p>
+            ) : (
+              recentlyAdded.map(m => (
+                <div key={m.id} className="dash-list-row">
+                  <MemberAvatar photoURL={m.photoURL} firstName={m.firstName} lastName={m.lastName} size="md" />
+                  <div style={{ flex: 1 }}>
+                    <div className="dash-list-name">{m.firstName} {m.lastName}</div>
+                    <div className="dash-list-sub">{m.createdAt ? formatShortDate(m.createdAt) : ''}</div>
+                  </div>
+                  <StatusBadge status={m.status} />
                 </div>
-                <StatusBadge status={m.status} />
-              </div>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </div>
 
       </div>
