@@ -9,4 +9,6 @@ export interface AttendanceRecord {
   recordedAt: Timestamp;
   sermonTitle?: string;
   preacher?: string;
+  /** Member IDs recorded as absent for this Sunday (absentee-marking model). */
+  absentees?: string[];
 }

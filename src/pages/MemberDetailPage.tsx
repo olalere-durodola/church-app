@@ -8,6 +8,7 @@ import { normalizeFullName, getValidDaysForMonth } from '../utils/memberUtils';
 import LoadingSpinner from '../components/LoadingSpinner';
 import StatusBadge from '../components/StatusBadge';
 import MemberAvatar from '../components/MemberAvatar';
+import ContactActions from '../components/ContactActions';
 import { MONTHS } from '../utils/dateConstants';
 
 function formatDate(ts: Timestamp | null): string {
@@ -246,7 +247,10 @@ export default function MemberDetailPage() {
             </div>
             <div>
               <h1>{member.firstName} {member.lastName}</h1>
-              <StatusBadge status={member.status} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.4rem', flexWrap: 'wrap' }}>
+                <StatusBadge status={member.status} />
+                <ContactActions phone={member.phone} email={member.email} compact />
+              </div>
             </div>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>

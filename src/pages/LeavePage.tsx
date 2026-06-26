@@ -21,9 +21,10 @@ function isoToday() {
   return new Date().toISOString().split('T')[0];
 }
 
+// Muted, on-theme palette for department badges (reverent/brass family)
 const COLOURS = [
-  '#3b82f6', '#ec4899', '#f97316', '#a855f7',
-  '#10b981', '#f59e0b', '#ef4444', '#06b6d4',
+  '#C9A24B', '#5B9A84', '#C2603A', '#8C9BB5',
+  '#B07BA3', '#8FA86B', '#D2A24A', '#7FB0C2',
 ];
 
 export default function LeavePage() {
@@ -212,7 +213,7 @@ export default function LeavePage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       {l.memberName}
                       {m?.status === 'Inactive' && (
-                        <span style={{ fontSize: '0.7rem', padding: '0.1rem 0.45rem', borderRadius: '999px', background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', fontWeight: 600 }}>Inactive</span>
+                        <span style={{ fontSize: '0.7rem', padding: '0.1rem 0.45rem', borderRadius: '999px', background: 'rgba(194,96,58,0.15)', color: '#D98A63', border: '1px solid rgba(194,96,58,0.35)', fontWeight: 600 }}>Inactive</span>
                       )}
                     </div>
                   </td>
@@ -259,7 +260,7 @@ export default function LeavePage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       {l.memberName}
                       {m?.status === 'Inactive' && (
-                        <span style={{ fontSize: '0.7rem', padding: '0.1rem 0.45rem', borderRadius: '999px', background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', fontWeight: 600 }}>Inactive</span>
+                        <span style={{ fontSize: '0.7rem', padding: '0.1rem 0.45rem', borderRadius: '999px', background: 'rgba(194,96,58,0.15)', color: '#D98A63', border: '1px solid rgba(194,96,58,0.35)', fontWeight: 600 }}>Inactive</span>
                       )}
                     </div>
                   </td>

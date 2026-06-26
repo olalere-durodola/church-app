@@ -7,6 +7,7 @@ import { filterMembers } from '../utils/memberFilters';
 import LoadingSpinner from '../components/LoadingSpinner';
 import StatusBadge from '../components/StatusBadge';
 import MemberAvatar from '../components/MemberAvatar';
+import ContactActions from '../components/ContactActions';
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -98,6 +99,7 @@ export default function MembersListPage() {
                 <th>Status</th>
                 <th>Gender</th>
                 <th>Department</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -107,7 +109,7 @@ export default function MembersListPage() {
                     <MemberAvatar photoURL={m.photoURL} firstName={m.firstName} lastName={m.lastName} size="sm" />
                   </td>
                   <td>
-                    <Link to={`/members/${m.id}`} style={{ fontWeight: 500, color: 'var(--color-primary)' }}>
+                    <Link to={`/members/${m.id}`} className="member-name-link">
                       {m.firstName} {m.lastName}
                     </Link>
                   </td>
@@ -115,6 +117,9 @@ export default function MembersListPage() {
                   <td><StatusBadge status={m.status} /></td>
                   <td style={{ color: 'var(--color-text-secondary)' }}>{m.gender}</td>
                   <td style={{ color: 'var(--color-text-secondary)' }}>{m.departments?.length ? m.departments.join(', ') : '—'}</td>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
+                    <ContactActions phone={m.phone} compact />
+                  </td>
                 </tr>
               ))}
             </tbody>

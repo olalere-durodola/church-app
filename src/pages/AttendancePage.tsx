@@ -3,10 +3,12 @@ import {
   collection, doc, getDocs, setDoc, serverTimestamp, Timestamp,
 } from 'firebase/firestore';
 import { Link } from 'react-router-dom';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import type { AttendanceRecord } from '../types/attendance';
+import type { Member } from '../types/member';
 import { formatDisplayDate } from '../utils/attendanceUtils';
 import AttendanceCalendar from '../components/AttendanceCalendar';
+import AttendancePieChart from '../components/AttendancePieChart';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 interface FormState {
@@ -21,10 +23,10 @@ interface FormState {
 const EMPTY_FORM: FormState = { men: 0, women: 0, children: 0, visitors: 0, sermonTitle: '', preacher: '' };
 
 const BREAKDOWN_COLOURS: Record<'men' | 'women' | 'children' | 'visitors', string> = {
-  men: '#3b82f6',
-  women: '#ec4899',
-  children: '#f97316',
-  visitors: '#a855f7',
+  men: '#C9A24B',      // brass
+  women: '#5B9A84',    // sage
+  children: '#C2603A', // clay
+  visitors: '#8C9BB5', // muted slate
 };
 
 export default function AttendancePage() {
@@ -34,19 +36,35 @@ export default function AttendancePage() {
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [absentees, setAbsentees] = useState<string[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   useEffect(() => {
-    getDocs(collection(db, 'attendance'))
-      .then(snap => {
+    Promise.all([
+      getDocs(collection(db, 'attendance')),
+      getDocs(collection(db, 'members')),
+    ])
+      .then(([attSnap, memSnap]) => {
         const map = new Map<string, AttendanceRecord>();
-        snap.forEach(d => map.set(d.id, d.data() as AttendanceRecord));
+        attSnap.forEach(d => map.set(d.id, d.data() as AttendanceRecord));
         setRecords(map);
+        setMembers(memSnap.docs.map(d => ({ id: d.id, ...d.data() } as Member)));
       })
       .catch(() => setFetchError('Failed to load attendance records.'))
       .finally(() => setLoading(false));
   }, []);
+
+  // Determine the signed-in user's pastoral role (matched by email to a member).
+  // HODs may only mark absentees within their own department(s); everyone else
+  // (pastors, ministers, or admins with no member record) may mark anyone.
+  const currentMember = members.find(m => m.email && m.email.toLowerCase() === (auth.currentUser?.email ?? '').toLowerCase());
+  const isHod = currentMember?.role === 'hod';
+  const hodDepts = currentMember?.hodDepartments ?? [];
+  const markableMembers = isHod
+    ? members.filter(m => (m.departments ?? []).some(d => hodDepts.includes(d)))
+    : members;
 
   function handleDateSelect(dateStr: string) {
     setSelectedDate(dateStr);
@@ -61,8 +79,10 @@ export default function AttendancePage() {
         sermonTitle: existing.sermonTitle ?? '',
         preacher: existing.preacher ?? '',
       });
+      setAbsentees(existing.absentees ?? []);
     } else {
       setForm(EMPTY_FORM);
+      setAbsentees([]);
     }
   }
 
@@ -93,6 +113,7 @@ export default function AttendancePage() {
         sermonTitle: form.sermonTitle,
         preacher: form.preacher,
         total,
+        absentees,
         recordedAt: serverTimestamp(),
       };
       await setDoc(doc(db, 'attendance', selectedDate), record, { merge: true });
@@ -106,6 +127,7 @@ export default function AttendancePage() {
           sermonTitle: form.sermonTitle,
           preacher: form.preacher,
           total,
+          absentees,
           recordedAt: Timestamp.now(),
         });
         return next;
@@ -192,6 +214,41 @@ export default function AttendancePage() {
               onChange={e => handleText('preacher', e.target.value)}
             />
           </label>
+
+          {/* Absentee marking */}
+          <div className="absentee-block">
+            <label style={{ marginBottom: 0 }}>
+              Absent members{isHod ? ' (your departments)' : ''}
+              <select
+                value=""
+                disabled={!selectedDate}
+                onChange={e => {
+                  const id = e.target.value;
+                  if (id) { setAbsentees(prev => prev.includes(id) ? prev : [...prev, id]); setSaveStatus('idle'); }
+                }}
+              >
+                <option value="">+ Mark a member absent…</option>
+                {[...markableMembers]
+                  .filter(m => !absentees.includes(m.id))
+                  .sort((a, b) => a.fullName.localeCompare(b.fullName))
+                  .map(m => <option key={m.id} value={m.id}>{m.firstName} {m.lastName}</option>)}
+              </select>
+            </label>
+            {absentees.length > 0 && (
+              <div className="absentee-chips">
+                {absentees.map(id => {
+                  const m = members.find(x => x.id === id);
+                  return (
+                    <span key={id} className="absentee-chip">
+                      {m ? `${m.firstName} ${m.lastName}` : 'Unknown'}
+                      <button type="button" aria-label="Remove" onClick={() => { setAbsentees(prev => prev.filter(x => x !== id)); setSaveStatus('idle'); }}>✕</button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <button
             className="btn btn-primary"
             onClick={handleSave}
@@ -206,6 +263,12 @@ export default function AttendancePage() {
         {/* Breakdown Panel */}
         <div className="attendance-breakdown">
           <div className="breakdown-label">Breakdown</div>
+          <AttendancePieChart
+            men={form.men}
+            women={form.women}
+            children={form.children}
+            visitors={form.visitors}
+          />
           {(['men', 'women', 'children', 'visitors'] as const).map(field => {
             const count = form[field];
             const pct = total > 0 ? Math.round((count / total) * 100) : 0;
