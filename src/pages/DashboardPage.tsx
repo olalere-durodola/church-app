@@ -7,6 +7,7 @@ import type { AttendanceRecord } from '../types/attendance';
 import type { Leave } from '../types/leave';
 import { getBirthdaysComingUp } from '../utils/birthdayUtils';
 import { MONTHS } from '../utils/dateConstants';
+import { useCountUp } from '../hooks/useCountUp';
 import LoadingSpinner from '../components/LoadingSpinner';
 import StatusBadge from '../components/StatusBadge';
 import MemberAvatar from '../components/MemberAvatar';
@@ -63,6 +64,11 @@ function sparkPaths(values: number[], w = 320, h = 84, pad = 6) {
   const line = pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
   const area = `${line} L${pts[pts.length - 1][0].toFixed(1)},${h} L${pts[0][0].toFixed(1)},${h} Z`;
   return { line, area, last: pts[pts.length - 1] };
+}
+
+/** Animated number that counts up on mount (respects reduced motion). */
+function CountUp({ value }: { value: number }) {
+  return <>{useCountUp(value).toLocaleString()}</>;
 }
 
 export default function DashboardPage() {
@@ -146,10 +152,10 @@ export default function DashboardPage() {
   return (
     <div className="page">
       {/* HERO — "This Sunday" */}
-      <section className="hero">
+      <section className="hero reveal">
         <div className="hero-head">
           <div>
-            <div className="hero-eyebrow">{todayLabel}</div>
+            <div className="hero-eyebrow"><span className="ornament">✦</span>{todayLabel}</div>
             <h1 className="hero-title">{greeting()}</h1>
             <p className="hero-sub">{totalMembers.toLocaleString()} {totalMembers === 1 ? 'member' : 'members'} in the house</p>
           </div>
@@ -159,12 +165,24 @@ export default function DashboardPage() {
           </Link>
         </div>
 
+        {/* Care thesis leads */}
+        <div className="hero-care">
+          <div className="micro-cap hero-care-label">Who needs care this week</div>
+          <div className="hero-chips">
+            <Link to="/follow-ups" className="hero-chip"><span className="cdot clay" />Needs follow-up <b>{openFollowUps}</b></Link>
+            <Link to="/birthdays" className="hero-chip"><span className="cdot brass" />Birthdays <b>{birthdays.length}</b></Link>
+            <Link to="/leave" className="hero-chip"><span className="cdot sage" />On leave <b>{leaves.length}</b></Link>
+            <Link to="/visitors" className="hero-chip"><span className="cdot brass" />Visitors <b>{visitorCount}</b></Link>
+            <span className="hero-chip"><span className="cdot muted" />Inactive <b>{inactiveCount}</b></span>
+          </div>
+        </div>
+
         <div className="hero-grid">
           {/* Stats column */}
           <div className="hero-stats">
             <div className="hero-stat">
               <div className="hero-stat-num">
-                {lastRecord ? lastRecord.total : '—'}
+                {lastRecord ? <CountUp value={lastRecord.total} /> : '—'}
                 {attDeltaPct !== null && (
                   <span className={`hero-delta ${attDeltaPct >= 0 ? 'up' : 'down'}`}>
                     {attDeltaPct >= 0 ? '▲' : '▼'} {Math.abs(attDeltaPct)}%
@@ -177,7 +195,7 @@ export default function DashboardPage() {
             </div>
             <div className="hero-divider" />
             <div className="hero-stat">
-              <div className="hero-stat-num">{newThisMonth}</div>
+              <div className="hero-stat-num"><CountUp value={newThisMonth} /></div>
               <div className="hero-stat-lbl">New members this month</div>
             </div>
           </div>
@@ -196,9 +214,9 @@ export default function DashboardPage() {
                     <stop offset="1" stopColor="rgba(201,162,75,0)" />
                   </linearGradient>
                 </defs>
-                <path d={spark.area} fill="url(#sparkfill)" />
-                <path d={spark.line} fill="none" stroke="#C9A24B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                <circle cx={spark.last[0]} cy={spark.last[1]} r="4" fill="#C9A24B" />
+                <path d={spark.area} fill="url(#sparkfill)" className="spark-area" />
+                <path d={spark.line} fill="none" stroke="#C9A24B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" pathLength={1} className="spark-line" />
+                <circle cx={spark.last[0]} cy={spark.last[1]} r="4" fill="#C9A24B" className="spark-dot" />
               </svg>
             ) : (
               <p className="hero-empty">Not enough attendance history yet.</p>
@@ -230,22 +248,14 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
-
-        {/* Care chips */}
-        <div className="hero-chips">
-          <Link to="/follow-ups" className="hero-chip"><span className="cdot clay" />Needs follow-up <b>{openFollowUps}</b></Link>
-          <Link to="/leave" className="hero-chip"><span className="cdot sage" />On leave <b>{leaves.length}</b></Link>
-          <Link to="/visitors" className="hero-chip"><span className="cdot brass" />Visitors <b>{visitorCount}</b></Link>
-          <span className="hero-chip"><span className="cdot muted" />Inactive <b>{inactiveCount}</b></span>
-        </div>
       </section>
 
       {/* SECONDARY CARDS */}
       <section className="dash-secondary">
         {/* Membership */}
-        <div className="card dash-card">
+        <div className="card dash-card reveal" style={{ animationDelay: '80ms' }}>
           <div className="card-cap"><span>Membership</span><Link to="/members">View all</Link></div>
-          <div className="card-big">{totalMembers.toLocaleString()}</div>
+          <div className="card-big"><CountUp value={totalMembers} /></div>
           <div className="card-big-sub">across the congregation</div>
           <div className="mini-breakdown">
             <div className="mb"><div className="mb-v sage">{activeCount}</div><div className="mb-k">Active</div></div>
@@ -255,7 +265,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Departments */}
-        <div className="card dash-card">
+        <div className="card dash-card reveal" style={{ animationDelay: '160ms' }}>
           <div className="card-cap"><span>Departments</span><Link to="/departments">Manage</Link></div>
           {topDepts.length === 0 ? (
             <p className="empty-state">No departments yet</p>
@@ -271,7 +281,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Recently joined */}
-        <div className="card dash-card">
+        <div className="card dash-card reveal" style={{ animationDelay: '240ms' }}>
           <div className="card-cap"><span>Recently joined</span><Link to="/members">View all</Link></div>
           <div className="dash-scroll-list">
             {recentlyAdded.length === 0 ? (
