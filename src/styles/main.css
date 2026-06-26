@@ -924,11 +924,11 @@ input:-webkit-autofill:focus,
 input:-webkit-autofill:active,
 textarea:-webkit-autofill,
 select:-webkit-autofill {
-  -webkit-text-fill-color: var(--color-text-primary);
+  -webkit-text-fill-color: var(--color-text-primary) !important;
   caret-color: var(--color-text-primary);
-  -webkit-box-shadow: 0 0 0 1000px var(--color-input-bg) inset;
-  box-shadow: 0 0 0 1000px var(--color-input-bg) inset;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  -webkit-box-shadow: 0 0 0 1000px var(--color-input-bg) inset !important;
+  box-shadow: 0 0 0 1000px var(--color-input-bg) inset !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
   transition: background-color 9999s ease-in-out 0s;
 }
 
