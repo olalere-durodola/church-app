@@ -215,40 +215,6 @@ export default function AttendancePage() {
             />
           </label>
 
-          {/* Absentee marking */}
-          <div className="absentee-block">
-            <label style={{ marginBottom: 0 }}>
-              Absent members{isHod ? ' (your departments)' : ''}
-              <select
-                value=""
-                disabled={!selectedDate}
-                onChange={e => {
-                  const id = e.target.value;
-                  if (id) { setAbsentees(prev => prev.includes(id) ? prev : [...prev, id]); setSaveStatus('idle'); }
-                }}
-              >
-                <option value="">+ Mark a member absent…</option>
-                {[...markableMembers]
-                  .filter(m => !absentees.includes(m.id))
-                  .sort((a, b) => a.fullName.localeCompare(b.fullName))
-                  .map(m => <option key={m.id} value={m.id}>{m.firstName} {m.lastName}</option>)}
-              </select>
-            </label>
-            {absentees.length > 0 && (
-              <div className="absentee-chips">
-                {absentees.map(id => {
-                  const m = members.find(x => x.id === id);
-                  return (
-                    <span key={id} className="absentee-chip">
-                      {m ? `${m.firstName} ${m.lastName}` : 'Unknown'}
-                      <button type="button" aria-label="Remove" onClick={() => { setAbsentees(prev => prev.filter(x => x !== id)); setSaveStatus('idle'); }}>✕</button>
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
           <button
             className="btn btn-primary"
             onClick={handleSave}
@@ -294,6 +260,51 @@ export default function AttendancePage() {
             <div className="breakdown-total-value">{total}</div>
           </div>
         </div>
+      </div>
+
+      {/* Absentee marking — its own tile */}
+      <div className="card absentee-card">
+        <div className="card-cap">
+          <span>Absent members{isHod ? ' · your departments' : ''}</span>
+          {absentees.length > 0 && <span className="absentee-count">{absentees.length} marked</span>}
+        </div>
+        {!selectedDate ? (
+          <p className="attendance-form-prompt" style={{ margin: 0 }}>
+            Select a date on the calendar to mark members absent.
+          </p>
+        ) : (
+          <div className="absentee-block">
+            <select
+              value=""
+              onChange={e => {
+                const id = e.target.value;
+                if (id) { setAbsentees(prev => prev.includes(id) ? prev : [...prev, id]); setSaveStatus('idle'); }
+              }}
+            >
+              <option value="">+ Mark a member absent…</option>
+              {[...markableMembers]
+                .filter(m => !absentees.includes(m.id))
+                .sort((a, b) => a.fullName.localeCompare(b.fullName))
+                .map(m => <option key={m.id} value={m.id}>{m.firstName} {m.lastName}</option>)}
+            </select>
+            {absentees.length === 0 ? (
+              <p className="absentee-hint">No one marked absent for this service yet.</p>
+            ) : (
+              <div className="absentee-chips">
+                {absentees.map(id => {
+                  const m = members.find(x => x.id === id);
+                  return (
+                    <span key={id} className="absentee-chip">
+                      {m ? `${m.firstName} ${m.lastName}` : 'Unknown'}
+                      <button type="button" aria-label="Remove" onClick={() => { setAbsentees(prev => prev.filter(x => x !== id)); setSaveStatus('idle'); }}>✕</button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            <p className="absentee-hint">Saved with the service when you press Save above.</p>
+          </div>
+        )}
       </div>
     </div>
   );
