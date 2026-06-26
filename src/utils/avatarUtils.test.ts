@@ -27,8 +27,8 @@ describe('getAvatarColor', () => {
 
   it('returns one of the 8 palette colours', () => {
     const PALETTE = [
-      '#3b82f6', '#22c55e', '#f97316', '#a855f7',
-      '#ec4899', '#14b8a6', '#f59e0b', '#6366f1',
+      '#b98b33', '#4f8a76', '#b0512a', '#6e7c95',
+      '#9a6a8e', '#6e8a55', '#5e7a8c', '#7a6ca6',
     ];
     const color = getAvatarColor('Emmanuel', 'Nwosu');
     expect(PALETTE).toContain(color);

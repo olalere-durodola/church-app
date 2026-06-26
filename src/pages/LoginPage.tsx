@@ -27,9 +27,9 @@ export default function LoginPage() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <div className="login-logo">✝</div>
-        <h1 className="login-title">R.C.C.G Covenant Embassy</h1>
-        <p className="login-subtitle">Admin Portal</p>
+        <div className="login-logo">CE</div>
+        <h1 className="login-title">Covenant Embassy</h1>
+        <p className="login-subtitle">R.C.C.G · Admin Portal</p>
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
             <label htmlFor="email">Email</label>

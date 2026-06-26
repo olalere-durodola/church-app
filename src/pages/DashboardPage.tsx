@@ -13,6 +13,8 @@ import MemberAvatar from '../components/MemberAvatar';
 
 type AttendanceEntry = AttendanceRecord & { id: string };
 
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 function formatShortDate(ts: { toDate(): Date }): string {
   const d = ts.toDate();
   return `${MONTHS[d.getMonth() + 1]} ${d.getDate()}`;
@@ -24,14 +26,59 @@ function formatDateId(dateId: string): string {
   return `${MONTHS[month]} ${day}`;
 }
 
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+/** Next calendar occurrence of a month/day, measured from local midnight today. */
+function nextBirthdayDate(month: number, day: number): Date {
+  const now = new Date();
+  const next = new Date(now.getFullYear(), month - 1, day);
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (next < midnight) next.setFullYear(now.getFullYear() + 1);
+  return next;
+}
+
+function daysUntil(month: number, day: number): number {
+  const now = new Date();
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((nextBirthdayDate(month, day).getTime() - midnight.getTime()) / 86400000);
+}
+
+/** Build a smooth-ish sparkline path + area path for a set of values. */
+function sparkPaths(values: number[], w = 320, h = 84, pad = 6) {
+  if (values.length < 2) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const stepX = (w - pad * 2) / (values.length - 1);
+  const pts = values.map((v, i) => {
+    const x = pad + i * stepX;
+    const y = pad + (h - pad * 2) * (1 - (v - min) / span);
+    return [x, y] as const;
+  });
+  const line = pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const area = `${line} L${pts[pts.length - 1][0].toFixed(1)},${h} L${pts[0][0].toFixed(1)},${h} Z`;
+  return { line, area, last: pts[pts.length - 1] };
+}
+
 export default function DashboardPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [attendance, setAttendance] = useState<AttendanceEntry[]>([]);
   const [leaves, setLeaves] = useState<Leave[]>([]);
+  const [openFollowUps, setOpenFollowUps] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // followUps may not have rules deployed yet — keep it from breaking the dashboard
+    getDocs(collection(db, 'followUps'))
+      .then(snap => setOpenFollowUps(snap.docs.filter(d => (d.data() as { status?: string }).status === 'open').length))
+      .catch(() => setOpenFollowUps(0));
+
     Promise.all([
       getDocs(collection(db, 'members')),
       getDocs(query(collection(db, 'attendance'), limit(100))),
@@ -42,7 +89,7 @@ export default function DashboardPage() {
         const sorted = attSnap.docs
           .map(d => ({ id: d.id, ...d.data() } as AttendanceEntry))
           .sort((a, b) => b.id.localeCompare(a.id))
-          .slice(0, 4);
+          .slice(0, 8);
         setAttendance(sorted);
         const today = new Date().toISOString().split('T')[0];
         setLeaves(
@@ -60,6 +107,7 @@ export default function DashboardPage() {
   if (error) return <div className="page"><p className="error-message">{error}</p></div>;
 
   const today = new Date();
+  const todayLabel = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   const totalMembers = members.length;
   const activeCount = members.filter(m => m.status === 'Active').length;
@@ -67,18 +115,20 @@ export default function DashboardPage() {
   const inactiveCount = members.filter(m => m.status === 'Inactive').length;
 
   const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-  const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
   const newThisMonth = members.filter(m => m.createdAt?.toDate() >= thisMonthStart).length;
-  const newLastMonth = members.filter(m => {
-    const d = m.createdAt?.toDate();
-    return d && d >= lastMonthStart && d < thisMonthStart;
-  }).length;
-  const activePercent = totalMembers > 0 ? Math.round((activeCount / totalMembers) * 100) : 0;
 
+  // Attendance: newest first in `attendance`; oldest→newest for the trend.
   const lastRecord = attendance[0] ?? null;
+  const prevRecord = attendance[1] ?? null;
+  const attDeltaPct =
+    lastRecord && prevRecord && prevRecord.total > 0
+      ? Math.round(((lastRecord.total - prevRecord.total) / prevRecord.total) * 100)
+      : null;
 
-  const upcomingBirthdays = getBirthdaysComingUp(members, today);
-  const nearestBirthday = upcomingBirthdays[0];
+  const trend = [...attendance].slice(0, 6).reverse();
+  const spark = sparkPaths(trend.map(r => r.total));
+
+  const birthdays = getBirthdaysComingUp(members, today);
 
   const recentlyAdded = [...members]
     .sort((a, b) => {
@@ -87,169 +137,142 @@ export default function DashboardPage() {
     })
     .slice(0, 5);
 
-  const trendRecords = [...attendance].reverse();
-  const maxTotal = Math.max(...trendRecords.map(r => r.total), 1);
-
-  function daysUntil(month: number, day: number): number {
-    const now = new Date();
-    const next = new Date(now.getFullYear(), month - 1, day);
-    if (next < now) next.setFullYear(now.getFullYear() + 1);
-    return Math.round((next.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86400000);
-  }
+  // Department strength (derived from members[].departments)
+  const deptCounts = new Map<string, number>();
+  members.forEach(m => (m.departments ?? []).forEach(d => deptCounts.set(d, (deptCounts.get(d) ?? 0) + 1)));
+  const topDepts = [...deptCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const maxDept = Math.max(1, ...topDepts.map(([, n]) => n));
 
   return (
     <div className="page">
-      <div className="page-header">
-        <h1>Dashboard</h1>
-      </div>
-
-      <div className="dashboard-grid">
-        {/* Total Members */}
-        <div className="card dash-card">
-          <div className="dash-card-label">Total Members</div>
-          <div className="dash-card-value" style={{ color: 'var(--color-primary)' }}>{totalMembers}</div>
-          <div className="dash-card-sub">{activePercent}% active</div>
-        </div>
-
-        {/* Last Attendance */}
-        <div className="card dash-card">
-          <div className="dash-card-label">Last Attendance</div>
-          {lastRecord ? (
-            <>
-              <div className="dash-card-value" style={{ color: '#22c55e' }}>{lastRecord.total}</div>
-              <div className="dash-card-sub">{formatDateId(lastRecord.id)}</div>
-            </>
-          ) : (
-            <>
-              <div className="dash-card-value" style={{ color: '#94a3b8' }}>—</div>
-              <div className="dash-card-sub">No records yet</div>
-            </>
-          )}
-        </div>
-
-        {/* New This Month */}
-        <div className="card dash-card">
-          <div className="dash-card-label">New This Month</div>
-          <div className="dash-card-value" style={{ color: '#06b6d4' }}>{newThisMonth}</div>
-          <div className="dash-card-sub">
-            {newLastMonth > 0
-              ? `${newThisMonth >= newLastMonth ? '+' : ''}${newThisMonth - newLastMonth} vs last month`
-              : 'No data from last month'}
+      {/* HERO — "This Sunday" */}
+      <section className="hero">
+        <div className="hero-head">
+          <div>
+            <div className="hero-eyebrow">{todayLabel}</div>
+            <h1 className="hero-title">{greeting()}</h1>
+            <p className="hero-sub">{totalMembers.toLocaleString()} {totalMembers === 1 ? 'member' : 'members'} in the house</p>
           </div>
+          <Link to="/attendance" className="btn-primary btn-lg hero-cta">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 11 3 3 8-8" /><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" /></svg>
+            Take roll call
+          </Link>
         </div>
 
-        {/* On Leave */}
-        <Link to="/leave" style={{ textDecoration: 'none', display: 'block', height: '100%' }}>
-          <div className="card dash-card" style={{ height: '100%' }}>
-            <div className="dash-card-label">On Leave</div>
-            <div className="dash-card-value" style={{ color: '#a855f7' }}>{leaves.length}</div>
-            <div className="dash-card-sub">
-              {leaves.length > 0
-                ? `Next: ${leaves[0].memberName.split(' ')[0]} — ${new Date(leaves[0].startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-                : 'No upcoming leave'}
-            </div>
-          </div>
-        </Link>
-
-        {/* Birthdays This Week */}
-        <div className="card dash-card">
-          <div className="dash-card-label">Birthdays</div>
-          {upcomingBirthdays.length > 0 && nearestBirthday.birthdayMonth !== null && nearestBirthday.birthdayDay !== null ? (
-            <>
-              <div className="dash-card-value" style={{ color: '#f97316' }}>{upcomingBirthdays.length}</div>
-              <div className="dash-card-sub">
-                Nearest: {nearestBirthday.firstName} —{' '}
-                {daysUntil(nearestBirthday.birthdayMonth, nearestBirthday.birthdayDay) === 0
-                  ? 'Today'
-                  : `${MONTHS[nearestBirthday.birthdayMonth]} ${nearestBirthday.birthdayDay}`}
+        <div className="hero-grid">
+          {/* Stats column */}
+          <div className="hero-stats">
+            <div className="hero-stat">
+              <div className="hero-stat-num">
+                {lastRecord ? lastRecord.total : '—'}
+                {attDeltaPct !== null && (
+                  <span className={`hero-delta ${attDeltaPct >= 0 ? 'up' : 'down'}`}>
+                    {attDeltaPct >= 0 ? '▲' : '▼'} {Math.abs(attDeltaPct)}%
+                  </span>
+                )}
               </div>
-            </>
+              <div className="hero-stat-lbl">
+                {lastRecord ? `Present · ${formatDateId(lastRecord.id)}` : 'No attendance yet'}
+              </div>
+            </div>
+            <div className="hero-divider" />
+            <div className="hero-stat">
+              <div className="hero-stat-num">{newThisMonth}</div>
+              <div className="hero-stat-lbl">New members this month</div>
+            </div>
+          </div>
+
+          {/* Sparkline */}
+          <div className="hero-spark">
+            <div className="hero-spark-top">
+              <span className="micro-cap">Attendance · last {trend.length} weeks</span>
+              <span className="hero-spark-now">{lastRecord ? lastRecord.total : '—'}</span>
+            </div>
+            {spark ? (
+              <svg viewBox="0 0 320 84" width="100%" height="84" preserveAspectRatio="none" aria-hidden="true">
+                <defs>
+                  <linearGradient id="sparkfill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stopColor="rgba(201,162,75,.32)" />
+                    <stop offset="1" stopColor="rgba(201,162,75,0)" />
+                  </linearGradient>
+                </defs>
+                <path d={spark.area} fill="url(#sparkfill)" />
+                <path d={spark.line} fill="none" stroke="#C9A24B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx={spark.last[0]} cy={spark.last[1]} r="4" fill="#C9A24B" />
+              </svg>
+            ) : (
+              <p className="hero-empty">Not enough attendance history yet.</p>
+            )}
+          </div>
+
+          {/* Birthdays this week */}
+          <div className="hero-bdays">
+            <div className="micro-cap">Birthdays this week</div>
+            {birthdays.length === 0 ? (
+              <p className="hero-empty">None this week.</p>
+            ) : (
+              <>
+                {birthdays.slice(0, 4).map(m => {
+                  const days = daysUntil(m.birthdayMonth!, m.birthdayDay!);
+                  const dt = nextBirthdayDate(m.birthdayMonth!, m.birthdayDay!);
+                  return (
+                    <div key={m.id} className="bday-row">
+                      <span className="bday-mark" />
+                      <span className="bday-name">{m.firstName} {m.lastName}</span>
+                      <span className="bday-day">{days === 0 ? 'Today' : `${WEEKDAYS[dt.getDay()]} ${dt.getDate()}`}</span>
+                    </div>
+                  );
+                })}
+                {birthdays.length > 4 && (
+                  <Link to="/birthdays" className="bday-more">+ {birthdays.length - 4} more →</Link>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Care chips */}
+        <div className="hero-chips">
+          <Link to="/follow-ups" className="hero-chip"><span className="cdot clay" />Needs follow-up <b>{openFollowUps}</b></Link>
+          <Link to="/leave" className="hero-chip"><span className="cdot sage" />On leave <b>{leaves.length}</b></Link>
+          <Link to="/visitors" className="hero-chip"><span className="cdot brass" />Visitors <b>{visitorCount}</b></Link>
+          <span className="hero-chip"><span className="cdot muted" />Inactive <b>{inactiveCount}</b></span>
+        </div>
+      </section>
+
+      {/* SECONDARY CARDS */}
+      <section className="dash-secondary">
+        {/* Membership */}
+        <div className="card dash-card">
+          <div className="card-cap"><span>Membership</span><Link to="/members">View all</Link></div>
+          <div className="card-big">{totalMembers.toLocaleString()}</div>
+          <div className="card-big-sub">across the congregation</div>
+          <div className="mini-breakdown">
+            <div className="mb"><div className="mb-v sage">{activeCount}</div><div className="mb-k">Active</div></div>
+            <div className="mb"><div className="mb-v brass">{visitorCount}</div><div className="mb-k">Visitors</div></div>
+            <div className="mb"><div className="mb-v muted">{inactiveCount}</div><div className="mb-k">Inactive</div></div>
+          </div>
+        </div>
+
+        {/* Departments */}
+        <div className="card dash-card">
+          <div className="card-cap"><span>Departments</span><Link to="/departments">Manage</Link></div>
+          {topDepts.length === 0 ? (
+            <p className="empty-state">No departments yet</p>
           ) : (
-            <>
-              <div className="dash-card-value" style={{ color: '#94a3b8' }}>0</div>
-              <div className="dash-card-sub">None this week</div>
-            </>
+            topDepts.map(([name, n]) => (
+              <div key={name} className="dash-bar-row">
+                <div className="dash-bar-label">{name}</div>
+                <div className="dash-bar-track"><div className="dash-bar-fill" style={{ width: `${(n / maxDept) * 100}%` }} /></div>
+                <div className="dash-bar-num">{n}</div>
+              </div>
+            ))
           )}
         </div>
 
-        {/* Member Breakdown */}
+        {/* Recently joined */}
         <div className="card dash-card">
-          <div className="dash-card-label">Member Breakdown <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--color-text-secondary)', fontSize: '0.7rem' }}>of {totalMembers}</span></div>
-          <div className="dash-breakdown">
-            <div>
-              <div className="dash-breakdown-value" style={{ color: 'var(--color-primary)' }}>{activeCount}</div>
-              <div className="dash-breakdown-label">Active</div>
-            </div>
-            <div>
-              <div className="dash-breakdown-value" style={{ color: '#f97316' }}>{visitorCount}</div>
-              <div className="dash-breakdown-label">Visitors</div>
-            </div>
-            <div>
-              <div className="dash-breakdown-value" style={{ color: '#94a3b8' }}>{inactiveCount}</div>
-              <div className="dash-breakdown-label">Inactive</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Upcoming Birthdays */}
-        <div className="card dash-card">
-          <div className="dash-section-head">
-            <span>🎂 Upcoming Birthdays</span>
-            <Link to="/birthdays" className="dash-link">All →</Link>
-          </div>
-          <div className="dash-scroll-list">
-            {upcomingBirthdays.length === 0 ? (
-              <p className="empty-state">No upcoming birthdays</p>
-            ) : (
-              upcomingBirthdays.map(m => {
-                const days = m.birthdayMonth !== null && m.birthdayDay !== null
-                  ? daysUntil(m.birthdayMonth, m.birthdayDay) : 0;
-                return (
-                  <div key={m.id} className="dash-list-row">
-                    <div>
-                      <div className="dash-list-name">{m.firstName} {m.lastName}</div>
-                      <div className="dash-list-sub">
-                        {m.birthdayMonth !== null && m.birthdayDay !== null
-                          ? `${MONTHS[m.birthdayMonth]} ${m.birthdayDay}` : ''}
-                      </div>
-                    </div>
-                    <span className="dash-badge-orange">{days === 0 ? 'Today' : `${days}d`}</span>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* Attendance Trend */}
-        <div className="card dash-card">
-          <div className="dash-section-head">
-            <span>📊 Attendance Trend</span>
-            <Link to="/attendance/history" className="dash-link">History →</Link>
-          </div>
-          <div className="dash-scroll-list">
-            {trendRecords.length === 0 ? (
-              <p className="empty-state">No attendance records yet</p>
-            ) : (
-              trendRecords.map(r => (
-                <div key={r.id} className="dash-bar-row">
-                  <div className="dash-bar-label">{formatDateId(r.id)}</div>
-                  <div className="dash-bar-track">
-                    <div className="dash-bar-fill" style={{ width: `${(r.total / maxTotal) * 100}%` }} />
-                  </div>
-                  <div className="dash-bar-num">{r.total}</div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Recently Added */}
-        <div className="card dash-card">
-          <div className="dash-section-head">
-            <span>👤 Recently Added</span>
-            <Link to="/members" className="dash-link">All →</Link>
-          </div>
+          <div className="card-cap"><span>Recently joined</span><Link to="/members">View all</Link></div>
           <div className="dash-scroll-list">
             {recentlyAdded.length === 0 ? (
               <p className="empty-state">No members yet</p>
@@ -257,7 +280,7 @@ export default function DashboardPage() {
               recentlyAdded.map(m => (
                 <div key={m.id} className="dash-list-row">
                   <MemberAvatar photoURL={m.photoURL} firstName={m.firstName} lastName={m.lastName} size="md" />
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="dash-list-name">{m.firstName} {m.lastName}</div>
                     <div className="dash-list-sub">{m.createdAt ? formatShortDate(m.createdAt) : ''}</div>
                   </div>
@@ -267,8 +290,7 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
-
-      </div>
+      </section>
     </div>
   );
 }

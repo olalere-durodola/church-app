@@ -36,26 +36,61 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.leaveNotification = exports.weeklyAttendanceReport = exports.visitorFollowUp = exports.birthdayReminders = void 0;
+exports.leaveNotification = exports.weeklyAttendanceReport = exports.visitorFollowUp = exports.sendBirthdayGreeting = exports.birthdayReminders = void 0;
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const firestore_1 = require("firebase-functions/v2/firestore");
+const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
 const mail_1 = __importDefault(require("@sendgrid/mail"));
 admin.initializeApp();
 const db = admin.firestore();
 // ---------------------------------------------------------------------------
-// Birthday Reminders — runs every day at 8 AM Central Time
+// Branded "Covenant" birthday card (dark, reverent, brass) — email-safe HTML
+// ---------------------------------------------------------------------------
+function birthdayCardHtml(firstName, message) {
+    const body = message
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br/>');
+    return `
+    <div style="background:#0E1015;padding:32px 16px;font-family:Georgia,'Times New Roman',serif">
+      <div style="max-width:560px;margin:0 auto;background:#1B1E26;border:1px solid rgba(255,255,255,0.08);border-radius:16px;overflow:hidden">
+        <div style="height:3px;background:linear-gradient(90deg,#C9A24B,rgba(201,162,75,0))"></div>
+        <div style="padding:36px 40px 8px;text-align:center">
+          <div style="width:64px;height:64px;margin:0 auto 18px;border-radius:50%;background:#C9A24B;color:#23170A;font-size:24px;font-weight:700;line-height:64px;font-family:Georgia,serif">CE</div>
+          <div style="color:#C9A24B;font-size:12px;letter-spacing:3px;text-transform:uppercase;font-family:Arial,sans-serif">Happy Birthday</div>
+          <h1 style="color:#ECE7DC;margin:10px 0 0;font-size:28px;font-weight:600">Dear ${firstName},</h1>
+        </div>
+        <div style="padding:18px 40px 30px">
+          <p style="color:#CFCABF;font-size:16px;line-height:1.85;margin:0;text-align:center">${body}</p>
+        </div>
+        <div style="padding:22px 40px;border-top:1px solid rgba(255,255,255,0.08);text-align:center">
+          <p style="color:#9AA0AD;font-size:12px;margin:0;font-family:Arial,sans-serif">
+            R.C.C.G Covenant Embassy &nbsp;·&nbsp; Plano, Texas<br/>
+            <span style="color:#6B7180">Redeemed Christian Church of God</span>
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+// ---------------------------------------------------------------------------
+// Birthday Greetings — runs every day at 8 AM Central Time
+//   "Human in the middle": drafts a greeting per birthday member and queues it
+//   in `birthdayGreetings` with status 'pending'. An admin reviews/edits in the
+//   app and presses Send (see sendBirthdayGreeting below). Members are NOT
+//   emailed automatically. The admin gets a heads-up email.
 // ---------------------------------------------------------------------------
 exports.birthdayReminders = (0, scheduler_1.onSchedule)({
     schedule: 'every day 08:00',
     timeZone: 'America/Chicago',
     secrets: ['SENDGRID_API_KEY', 'SENDGRID_FROM_EMAIL', 'ANTHROPIC_API_KEY'],
 }, async () => {
+    var _a, _b, _c;
     const today = new Date();
     const month = today.getMonth() + 1; // 1-based
     const day = today.getDate();
-    // Fetch members whose birthday is today
+    const dateId = today.toISOString().split('T')[0]; // YYYY-MM-DD
     const snap = await db
         .collection('members')
         .where('birthdayMonth', '==', month)
@@ -65,41 +100,110 @@ exports.birthdayReminders = (0, scheduler_1.onSchedule)({
         console.log('No birthdays today.');
         return;
     }
-    const members = snap.docs.map(d => d.data());
-    // Use Claude to draft a birthday message for each member
     const anthropic = new sdk_1.default({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const drafts = [];
-    for (const m of members) {
-        const response = await anthropic.messages.create({
-            model: 'claude-haiku-4-5-20251001',
-            max_tokens: 200,
-            messages: [
-                {
-                    role: 'user',
-                    content: `Write a warm, brief birthday message from R.C.C.G Covenant Embassy church to ${m.firstName} ${m.lastName}. Keep it to 2-3 sentences. Friendly and faith-based but not overly formal.`,
-                },
-            ],
-        });
-        const text = response.content[0].type === 'text' ? response.content[0].text : '';
-        drafts.push(`<b>${m.firstName} ${m.lastName}</b>${m.phone ? ` — ${m.phone}` : ''}${m.email ? ` — ${m.email}` : ''}<br/><i>${text}</i>`);
+    let queued = 0;
+    const digestRows = [];
+    for (const docSnap of snap.docs) {
+        const m = docSnap.data();
+        // One greeting per member per day (id is idempotent across retries/runs)
+        const greetingRef = db.collection('birthdayGreetings').doc(`${dateId}_${docSnap.id}`);
+        const existing = await greetingRef.get();
+        // Draft a warm greeting (fall back to a default if Claude is unavailable)
+        let text = `Happy birthday, ${m.firstName}! On behalf of the entire R.C.C.G Covenant Embassy family, ` +
+            `we celebrate the gift of your life today. May this new year overflow with God's grace, favour, and joy. ` +
+            `We are grateful to walk this journey of faith with you.`;
+        if (!existing.exists) {
+            try {
+                const response = await anthropic.messages.create({
+                    model: 'claude-haiku-4-5-20251001',
+                    max_tokens: 220,
+                    messages: [
+                        {
+                            role: 'user',
+                            content: `Write a warm, brief birthday message from R.C.C.G Covenant Embassy church to ${m.firstName} ${m.lastName}. ` +
+                                `Keep it to 2-3 sentences. Friendly and faith-based but not overly formal. ` +
+                                `Do NOT include a salutation (no "Dear ...") and do NOT include a sign-off. Plain text only.`,
+                        },
+                    ],
+                });
+                if (response.content[0].type === 'text')
+                    text = response.content[0].text;
+            }
+            catch (err) {
+                console.warn(`Claude unavailable for ${m.firstName}, using default message:`, err);
+            }
+            await greetingRef.set({
+                memberId: docSnap.id,
+                memberName: `${m.firstName} ${m.lastName}`,
+                firstName: m.firstName,
+                email: (_a = m.email) !== null && _a !== void 0 ? _a : '',
+                phone: (_b = m.phone) !== null && _b !== void 0 ? _b : '',
+                status: (_c = m.status) !== null && _c !== void 0 ? _c : '',
+                date: dateId,
+                draft: text,
+                reviewStatus: 'pending', // pending | sent | skipped
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            queued++;
+        }
+        const flag = !m.email ? ' (no email on file)' : '';
+        digestRows.push(`<b>${m.firstName} ${m.lastName}</b>${m.email ? ` — ${m.email}` : ''}${flag}`);
     }
-    // Build email
+    // Heads-up email to the admin
     const dateStr = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-    const html = `
-      <h2>🎂 Birthday Reminders — ${dateStr}</h2>
-      <p>${members.length} member${members.length !== 1 ? 's have' : ' has'} a birthday today:</p>
-      <hr/>
-      ${drafts.map(d => `<p>${d}</p><hr/>`).join('')}
-      <p style="color:#888;font-size:12px;">Sent by R.C.C.G Covenant Embassy Church App</p>
-    `;
     mail_1.default.setApiKey(process.env.SENDGRID_API_KEY);
     await mail_1.default.send({
         to: 'olalere.durodola@gmail.com',
         from: process.env.SENDGRID_FROM_EMAIL,
-        subject: `🎂 ${members.length} Birthday${members.length !== 1 ? 's' : ''} Today — ${dateStr}`,
-        html,
+        subject: `🎂 ${snap.size} Birthday${snap.size !== 1 ? 's' : ''} Today — review & send (${dateStr})`,
+        html: `
+        <h2>🎂 Birthdays Today — ${dateStr}</h2>
+        <p>${snap.size} member${snap.size !== 1 ? 's have' : ' has'} a birthday today.
+           ${queued} greeting${queued !== 1 ? 's are' : ' is'} drafted and waiting for your review.</p>
+        <p>Open the church app → <b>Birthdays</b> to review, edit, and send.</p>
+        <hr/>
+        ${digestRows.map(d => `<p>${d}</p>`).join('')}
+        <p style="color:#888;font-size:12px;">Sent by R.C.C.G Covenant Embassy Church App</p>
+      `,
     });
-    console.log(`Birthday reminder sent for ${members.length} member(s).`);
+    console.log(`Birthdays: ${snap.size} today, ${queued} greeting(s) queued for review.`);
+});
+// ---------------------------------------------------------------------------
+// sendBirthdayGreeting — callable, admin-only. Sends one reviewed greeting.
+// ---------------------------------------------------------------------------
+exports.sendBirthdayGreeting = (0, https_1.onCall)({ secrets: ['SENDGRID_API_KEY', 'SENDGRID_FROM_EMAIL'] }, async (request) => {
+    var _a, _b;
+    const uid = (_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid;
+    if (!uid)
+        throw new https_1.HttpsError('unauthenticated', 'Sign in required.');
+    const adminDoc = await db.collection('admins').doc(uid).get();
+    if (!adminDoc.exists)
+        throw new https_1.HttpsError('permission-denied', 'Admins only.');
+    const greetingId = (_b = request.data) === null || _b === void 0 ? void 0 : _b.greetingId;
+    if (!greetingId)
+        throw new https_1.HttpsError('invalid-argument', 'greetingId is required.');
+    const ref = db.collection('birthdayGreetings').doc(greetingId);
+    const snap = await ref.get();
+    if (!snap.exists)
+        throw new https_1.HttpsError('not-found', 'Greeting not found.');
+    const g = snap.data();
+    if (g.reviewStatus === 'sent')
+        return { ok: true, alreadySent: true };
+    if (!g.email)
+        throw new https_1.HttpsError('failed-precondition', 'This member has no email on file.');
+    mail_1.default.setApiKey(process.env.SENDGRID_API_KEY);
+    await mail_1.default.send({
+        to: g.email,
+        from: process.env.SENDGRID_FROM_EMAIL,
+        subject: `Happy Birthday, ${g.firstName}! 🎉`,
+        html: birthdayCardHtml(g.firstName, g.draft),
+    });
+    await ref.update({
+        reviewStatus: 'sent',
+        sentAt: admin.firestore.FieldValue.serverTimestamp(),
+        sentBy: uid,
+    });
+    return { ok: true };
 });
 // ---------------------------------------------------------------------------
 // Visitor Follow-up — triggers when a new member document is created

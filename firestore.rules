@@ -26,5 +26,20 @@ service cloud.firestore {
     match /leaves/{leaveId} {
       allow read, write: if isAdmin();
     }
+
+    match /visitors/{visitorId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /followUps/{followUpId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Birthday greetings queued for human review before sending.
+    // Admins read, edit the draft, and skip; the Cloud Function (admin SDK)
+    // creates them and marks them sent.
+    match /birthdayGreetings/{greetingId} {
+      allow read, write: if isAdmin();
+    }
   }
 }

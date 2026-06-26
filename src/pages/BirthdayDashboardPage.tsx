@@ -6,6 +6,7 @@ import type { Member } from '../types/member';
 import { getBirthdaysThisMonth, getBirthdaysComingUp } from '../utils/birthdayUtils';
 import LoadingSpinner from '../components/LoadingSpinner';
 import StatusBadge from '../components/StatusBadge';
+import BirthdayGreetingsReview from '../components/BirthdayGreetingsReview';
 import { MONTHS } from '../utils/dateConstants';
 
 function BirthdayTable({ rows }: { rows: Member[] }) {
@@ -25,7 +26,7 @@ function BirthdayTable({ rows }: { rows: Member[] }) {
         {rows.map(m => (
           <tr key={m.id}>
             <td>
-              <Link to={`/members/${m.id}`} style={{ fontWeight: 500 }}>
+              <Link to={`/members/${m.id}`} className="member-name-link">
                 {m.firstName} {m.lastName}
               </Link>
             </td>
@@ -67,19 +68,17 @@ export default function BirthdayDashboardPage() {
       <h1 style={{ marginBottom: '2rem' }}>Birthdays</h1>
 
       <div style={{ display: 'grid', gap: '2rem' }}>
+        <BirthdayGreetingsReview />
+
         <section>
-          <h2 style={{ marginBottom: '1rem', fontSize: '1rem', fontWeight: 600 }}>
-            🎂 Coming Up This Week
-          </h2>
+          <div className="section-eyebrow">Coming up this week</div>
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <BirthdayTable rows={comingUp} />
           </div>
         </section>
 
         <section>
-          <h2 style={{ marginBottom: '1rem', fontSize: '1rem', fontWeight: 600 }}>
-            📅 This Month — {MONTHS[today.getMonth() + 1]}
-          </h2>
+          <div className="section-eyebrow">This month — {MONTHS[today.getMonth() + 1]}</div>
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <BirthdayTable rows={thisMonth} />
           </div>
