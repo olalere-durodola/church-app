@@ -101,6 +101,16 @@ body {
   background-color: var(--color-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Render native controls (date picker, dropdowns, scrollbars) in dark mode */
+  color-scheme: dark;
+}
+
+/* Themed checkboxes & radios */
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--color-primary);
+  width: auto;
+  cursor: pointer;
 }
 
 img,
