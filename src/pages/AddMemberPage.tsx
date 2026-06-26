@@ -89,7 +89,7 @@ export default function AddMemberPage() {
         <Link to="/members"><button className="btn-secondary">Cancel</button></Link>
       </div>
 
-      <div className="card" style={{ padding: '2rem' }}>
+      <div className="card form-card" style={{ padding: '2rem' }}>
         <form onSubmit={handleSubmit}>
           <div className="field-row">
             <div className="form-group">
@@ -100,6 +100,8 @@ export default function AddMemberPage() {
               <label htmlFor="lastName">Last Name *</label>
               <input id="lastName" value={lastName} onChange={e => setLastName(e.target.value)} required />
             </div>
+          </div>
+          <div className="field-row">
             <div className="form-group">
               <label htmlFor="phone">Phone</label>
               <input id="phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} />

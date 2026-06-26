@@ -101,6 +101,16 @@ body {
   background-color: var(--color-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Render native controls (date picker, dropdowns, scrollbars) in dark mode */
+  color-scheme: dark;
+}
+
+/* Themed checkboxes & radios */
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--color-primary);
+  width: auto;
+  cursor: pointer;
 }
 
 img,
@@ -874,12 +884,15 @@ label {
   margin-bottom: 0.375rem;
 }
 
+input:not([type]),
 input[type='text'],
 input[type='email'],
 input[type='password'],
 input[type='tel'],
 input[type='date'],
 input[type='number'],
+input[type='search'],
+input[type='url'],
 select,
 textarea {
   display: block;
@@ -917,6 +930,21 @@ textarea:focus {
   box-shadow: var(--shadow-focus);
 }
 
+/* Keep browser autofill on-theme (Chrome paints fields white/yellow by default) */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--color-text-primary) !important;
+  caret-color: var(--color-text-primary);
+  -webkit-box-shadow: 0 0 0 1000px var(--color-input-bg) inset !important;
+  box-shadow: 0 0 0 1000px var(--color-input-bg) inset !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
 input::placeholder,
 textarea::placeholder {
   color: #a0aec0;
@@ -933,6 +961,11 @@ textarea:disabled {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
+}
+
+/* Contain forms so they don't sprawl on wide screens */
+.form-card {
+  max-width: 880px;
 }
 
 /* ============================================================
